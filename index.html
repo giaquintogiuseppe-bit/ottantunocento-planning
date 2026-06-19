@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a1628">
+<title>81|00 Planning Lavori</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0a1628;--navy2:#0f1f3d;--teal:#00b4a6;--teal2:#00d4c4;--td:rgba(0,180,166,.13);--td2:rgba(0,180,166,.06);--gold:#e8b84b;--red:#e84b4b;--green:#4be87a;--text:#e8eaf0;--text2:#8a95a8;--brd:rgba(255,255,255,.07);--card:rgba(255,255,255,.04);--r:12px;--r2:8px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--navy);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
+#app{display:flex;flex-direction:column;height:100dvh}
+/* HEADER */
+#hdr{background:var(--navy2);border-bottom:1px solid var(--brd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10}
+#hdr-logo{font-size:21px;font-weight:800;color:var(--teal)}
+#hdr-logo span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:1px}
+#hdr-r{display:flex;align-items:center;gap:12px}
+#hdr-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-align:right}
+#hdr-date b{display:block;color:var(--teal);font-size:13px}
+#cloud-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+#cloud-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2);transition:background .3s}
+/* LAYOUT */
+#main{display:flex;flex:1;overflow:hidden}
+#sb{width:215px;background:var(--navy2);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.ns{padding:18px 12px 7px;font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:10px;padding:10px 15px;margin:2px 7px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;border:1px solid transparent}
+.ni:hover{background:var(--td2);color:var(--text)}
+.ni.active{background:var(--td);color:var(--teal);border-color:rgba(0,180,166,.2)}
+#sbf{margin-top:auto;padding:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:7px}
+.btn-sb{width:100%;padding:8px;border-radius:var(--r2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-teal{background:var(--td);color:var(--teal);border:1px solid rgba(0,180,166,.3)}
+.btn-teal:hover{background:var(--teal);color:var(--navy)}
+.btn-gold{background:rgba(232,184,75,.12);color:var(--gold);border:1px solid rgba(232,184,75,.3)}
+.btn-gold:hover{background:var(--gold);color:var(--navy)}
+.btn-gray{background:transparent;color:var(--text2);border:1px solid var(--brd)}
+.btn-gray:hover{border-color:var(--text2);color:var(--text)}
+/* CONTENT */
+#cnt{flex:1;overflow-y:auto;padding:22px}
+.pg{display:none}.pg.active{display:block;animation:fi .18s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.pt{font-size:25px;font-weight:800;margin-bottom:3px}
+.ps{font-size:13px;color:var(--text2);margin-bottom:20px;font-family:'DM Mono',monospace}
+/* STAT CARDS */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;margin-bottom:20px}
+.sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:15px}
+.sc .lb{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.sc .vl{font-size:24px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace}
+.sc .sb2{font-size:11px;color:var(--text2);margin-top:3px}
+/* FORM */
+.fc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:18px}
+.fc h3{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fg label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px}
+.fg input,.fg select,.fg textarea{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;outline:none;width:100%;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal)}
+.fg textarea{resize:vertical;min-height:60px}
+.fg select option{background:var(--navy2)}
+.fa{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
+.bp{padding:9px 18px;background:var(--teal);color:var(--navy);border:none;border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
+.bp:hover{background:var(--teal2)}
+.bs{padding:9px 18px;background:transparent;color:var(--text2);border:1px solid var(--brd);border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:600;font-size:13px;cursor:pointer}
+.bd{padding:5px 10px;background:transparent;color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:600;font-size:11px;cursor:pointer}
+.bd:hover{background:rgba(232,75,75,.1)}
+/* TABLE */
+.tc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.th{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap;gap:8px}
+.th h3{font-size:13px;font-weight:700}
+.ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
+.ts:focus{border-color:var(--teal)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:9px 14px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);background:rgba(255,255,255,.02);border-bottom:1px solid var(--brd);font-weight:700}
+tbody tr{border-bottom:1px solid var(--brd);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--td2)}
+tbody td{padding:10px 14px;vertical-align:middle}
+.mn{font-family:'DM Mono',monospace}
+/* BADGE */
+.bx{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
+.bg{background:rgba(75,232,122,.15);color:var(--green)}
+.br{background:rgba(232,75,75,.15);color:var(--red)}
+.bo{background:rgba(232,184,75,.15);color:var(--gold)}
+.bt{background:var(--td);color:var(--teal)}
+.bz{background:rgba(138,149,168,.15);color:var(--text2)}
+/* DASHBOARD */
+.dg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+@media(min-width:860px){.dg{grid-template-columns:repeat(4,1fr)}}
+.dc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
+.dc .dl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.dc .dv{font-size:28px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace;line-height:1}
+.dc .ds{font-size:11px;color:var(--text2);margin-top:5px;font-family:'DM Mono',monospace}
+.rl{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
+.ri{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--brd);gap:10px}
+.ri:last-child{border-bottom:none}
+.ri .rlt{font-size:13px;font-weight:600}
+.ri .rls{font-size:10px;color:var(--text2);margin-top:2px;font-family:'DM Mono',monospace}
+.sl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:9px;font-weight:700}
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.mo.open{display:flex}
+.md{background:var(--navy2);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:600px;max-height:92dvh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd)}
+.mh h3{font-size:15px;font-weight:700}
+.mc{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1}
+.mb{padding:18px 20px}
+.mf{padding:13px 20px;border-top:1px solid var(--brd);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+/* MOBILE NAV */
+#mnav{display:none;background:var(--navy2);border-top:1px solid var(--brd);flex-shrink:0}
+.mni{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 2px}
+.mni::-webkit-scrollbar{display:none}
+.mni-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 12px;cursor:pointer;font-size:8px;font-weight:700;text-transform:uppercase;color:var(--text2);border-top:2px solid transparent;flex-shrink:0;white-space:nowrap}
+.mni-item .mii{font-size:18px}
+.mni-item.active{color:var(--teal);border-top-color:var(--teal)}
+/* IMPORT CALENDAR */
+.gcal-login-box{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:24px;text-align:center;margin-bottom:18px}
+.gcal-login-box p{font-size:13px;color:var(--text2);margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto}
+.gcal-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:14px}
+.gcal-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2)}
+.gcal-status-dot.ok{background:var(--green)}
+.ev-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ev-card.imported{opacity:.55}
+.ev-info{flex:1;min-width:180px}
+.ev-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.ev-meta{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.ev-actions{display:flex;gap:7px;flex-wrap:wrap}
+@media(max-width:700px){
+  #sb{display:none}#mnav{display:block}#cnt{padding:12px}
+  .sg{grid-template-columns:repeat(2,1fr)}.fg{grid-template-columns:1fr}
+  .dg{grid-template-columns:repeat(2,1fr)}
+  thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none}
+}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal);color:var(--navy);padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<div id="hdr">
+  <div id="hdr-logo">81|00<span>Planning Lavori</span></div>
+  <div id="hdr-r">
+    <div id="cloud-status"><span id="cloud-status-dot"></span><span id="cloud-status-text">—</span></div>
+    <div id="hdr-date"><b id="hdate"></b><span id="htime"></span></div>
+  </div>
+</div>
+
+<div id="main">
+<!-- SIDEBAR -->
+<div id="sb">
+  <div class="ns">Overview</div>
+  <div class="ni active" onclick="nav('dash')">⬛ Dashboard</div>
+  <div class="ns">Pianificazione</div>
+  <div class="ni" onclick="nav('cantieri')">🏗️ Cantieri</div>
+  <div class="ni" onclick="nav('calendario')">📅 Calendario</div>
+  <div class="ni" onclick="nav('import-cal')">📥 Importa da Calendar</div>
+  <div class="ni" onclick="nav('monitor')">🪑 Monitor Risorse</div>
+  <div class="ns">Sistema</div>
+  <div class="ni" onclick="nav('sync')">☁️ Sync & Calendar</div>
+  <div id="sbf">
+    <button class="btn-sb btn-gold" onclick="alert('Export Excel — arriva nel prossimo step')">📊 Esporta Excel</button>
+    <button class="btn-sb btn-teal" onclick="cloudSalvaOra()">☁️ Salva sul cloud</button>
+    <button class="btn-sb btn-gray" onclick="cloudCaricaOra()">📂 Carica dal cloud</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="cnt">
+
+  <!-- DASHBOARD -->
+  <div id="pg-dash" class="pg active">
+    <div class="pt">Dashboard</div>
+    <div class="ps" id="ds-sub"></div>
+    <div class="dg" id="ds-kpi"></div>
+    <div class="sl">Cantieri in corso / in arrivo</div>
+    <div class="rl" id="ds-cant" style="margin-bottom:18px"></div>
+    <div class="sl">Prossimi interventi</div>
+    <div class="rl" id="ds-interventi"></div>
+  </div>
+
+  <!-- CANTIERI (placeholder, arriva nello step 2) -->
+  <div id="pg-cantieri" class="pg">
+    <div class="pt">Cantieri</div>
+    <div class="ps">Pianificazione lavori — in costruzione nel prossimo step</div>
+  </div>
+
+  <!-- CALENDARIO (placeholder) -->
+  <div id="pg-calendario" class="pg">
+    <div class="pt">Calendario</div>
+    <div class="ps">Vista mensile/settimanale — arriva più avanti</div>
+  </div>
+
+  <!-- IMPORTA DA CALENDAR -->
+  <div id="pg-import-cal" class="pg">
+    <div class="pt">Importa da Calendar</div>
+    <div class="ps">Leggi gli eventi dal calendario condiviso e trasformali in cantieri</div>
+
+    <div class="gcal-login-box" id="gcal-login-box">
+      <div class="gcal-status"><span class="gcal-status-dot" id="gcal-dot"></span><span id="gcal-status-text">Non collegato a Google Calendar</span></div>
+      <p>Accedi con il tuo account Google per leggere gli eventi dal calendario condiviso col Gestionale 81|00. L'accesso è in sola lettura: il Planning non modifica né cancella nulla sul tuo Calendar.</p>
+      <button class="bp" id="gcal-btn" onclick="gcalLogin()">🔑 Accedi con Google</button>
+    </div>
+
+    <div class="fc" id="gcal-range-box" style="display:none">
+      <h3>Periodo da importare</h3>
+      <div class="fg">
+        <div><label>Da</label><input type="date" id="gcal-from"></div>
+        <div><label>A</label><input type="date" id="gcal-to"></div>
+      </div>
+      <div class="fa">
+        <button class="bp" onclick="gcalCaricaEventi()">🔄 Carica eventi</button>
+        <button class="bs" onclick="gcalLogout()">Disconnetti</button>
+      </div>
+    </div>
+
+    <div id="gcal-eventi-wrap" style="display:none">
+      <div class="sl">Eventi trovati</div>
+      <div id="gcal-eventi-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ANTEPRIMA/MODIFICA EVENTO -> CANTIERE -->
+  <div class="mo" id="modal-ev-preview">
+    <div class="md">
+      <div class="mh"><h3>Crea cantiere da evento</h3><button class="mc" onclick="closeModal('modal-ev-preview')">✕</button></div>
+      <div class="mb">
+        <div class="fg">
+          <div><label>Nome cantiere</label><input id="evp-nome"></div>
+          <div><label>Committente</label><input id="evp-committente"></div>
+          <div><label>Luogo</label><input id="evp-luogo"></div>
+          <div><label>Inizio</label><input type="date" id="evp-inizio"></div>
+          <div><label>Fine</label><input type="date" id="evp-fine"></div>
+        </div>
+        <div style="margin-top:10px"><label style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note (dalla descrizione evento)</label><textarea id="evp-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:80px;outline:none"></textarea></div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-ev-preview')">Annulla</button>
+        <button class="bp" onclick="confermaCreaCantiereDaEvento()">💾 Crea cantiere</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONITOR RISORSE (placeholder) -->
+  <div id="pg-monitor" class="pg">
+    <div class="pt">Monitor Risorse</div>
+    <div class="ps">Disponibilità sedie/attrezzature — arriva più avanti</div>
+  </div>
+
+
+  <!-- SYNC (placeholder, base cloud già attiva) -->
+  <div id="pg-sync" class="pg">
+    <div class="pt">Sync & Calendar</div>
+    <div class="ps">Stato sincronizzazione cloud condivisa col Gestionale</div>
+    <div class="fc">
+      <h3>Cloud (Supabase — condiviso col Gestionale)</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Il Planning legge e scrive la stessa riga cloud del Gestionale 81|00.
+        Aggiorna solo i propri campi (cantieri estesi, interventi), senza toccare presenze, saldi o documenti del gestionale.
+      </p>
+      <div class="fa">
+        <button class="bp" onclick="cloudSalvaOra()">☁️ Salva sul cloud ora</button>
+        <button class="bs" onclick="cloudCaricaOra()">📂 Carica dal cloud ora</button>
+      </div>
+      <div id="cloud-log" style="display:none;background:var(--navy);border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:11px;margin-top:12px"></div>
+    </div>
+    <div class="fc">
+      <h3>Google Calendar</h3>
+      <p style="font-size:12px;color:var(--text2)">Sincronizzazione manuale — arriva in uno step successivo, dopo aver consolidato la struttura cantieri/interventi.</p>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- MOBILE NAV -->
+<div id="mnav">
+  <div class="mni">
+    <div class="mni-item active" onclick="nav('dash')"><span class="mii">⬛</span>Dash</div>
+    <div class="mni-item" onclick="nav('cantieri')"><span class="mii">🏗️</span>Cantieri</div>
+    <div class="mni-item" onclick="nav('calendario')"><span class="mii">📅</span>Cal.</div>
+    <div class="mni-item" onclick="nav('import-cal')"><span class="mii">📥</span>Import</div>
+    <div class="mni-item" onclick="nav('monitor')"><span class="mii">🪑</span>Monitor</div>
+    <div class="mni-item" onclick="nav('sync')"><span class="mii">☁️</span>Sync</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+</div>
+
+<script>
+// ============================================================
+// DB — struttura dati locale (Planning Lavori)
+// Condivide la stessa riga cloud Supabase del Gestionale 81|00.
+// Scrive/aggiorna SOLO il campo "cantieri" (esteso) e non tocca
+// presenze, saldi, documenti, pagamenti che restano di competenza
+// del Gestionale.
+// ============================================================
+const DB = {};
+
+function seedVuoto(){
+  return {
+    cantieri: [],          // entità estesa: vedi creaCantiere()
+    _meta: { ultimaModifica: null }
+  };
+}
+
+function load(){
+  try{
+    const s = localStorage.getItem('otto8100_planning_v1');
+    if(s){
+      Object.assign(DB, JSON.parse(s));
+      if(!DB.cantieri) DB.cantieri = [];
+      return;
+    }
+  }catch(e){}
+  Object.assign(DB, seedVuoto());
+  save();
+}
+
+function save(){
+  localStorage.setItem('otto8100_planning_v1', JSON.stringify(DB));
+  DB._meta = DB._meta || {};
+  DB._meta.ultimaModifica = new Date().toISOString();
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return parseFloat(n||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
+function fdate(s){ if(!s) return '—'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; }
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function clock(){
+  const now = new Date();
+  document.getElementById('hdate').textContent = now.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('htime').textContent = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ============================================================
+// NAVIGAZIONE
+// ============================================================
+function nav(page){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+page).classList.add('active');
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mni-item').forEach(n=>n.classList.remove('active'));
+  // riattiva il nav item cliccato (matching su onclick contenente la page)
+  document.querySelectorAll('.ni').forEach(n=>{ if(n.getAttribute('onclick')===`nav('${page}')`) n.classList.add('active'); });
+  document.querySelectorAll('.mni-item').forEach(n=>{ if(n.getAttribute('onclick')===`nav('${page}')`) n.classList.add('active'); });
+  if(page==='dash') renderDash();
+  if(page==='import-cal') gcalRefreshUI();
+}
+
+// ============================================================
+// DASHBOARD (versione minima — verrà arricchita insieme ai Cantieri)
+// ============================================================
+function renderDash(){
+  document.getElementById('ds-sub').textContent = `Aggiornato al ${fdate(today())}`;
+
+  const cantieri = DB.cantieri || [];
+  const oggi = today();
+  const inCorso = cantieri.filter(c => c.periodoInizio <= oggi && (c.periodoFine||c.periodoInizio) >= oggi);
+  const futuri = cantieri.filter(c => c.periodoInizio > oggi);
+
+  document.getElementById('ds-kpi').innerHTML = `
+    <div class="dc"><div class="dl">Cantieri totali</div><div class="dv">${cantieri.length}</div></div>
+    <div class="dc"><div class="dl">In corso oggi</div><div class="dv">${inCorso.length}</div></div>
+    <div class="dc"><div class="dl">In arrivo</div><div class="dv">${futuri.length}</div></div>
+    <div class="dc"><div class="dl">Interventi totali</div><div class="dv">${cantieri.reduce((a,c)=>a+(c.interventi||[]).length,0)}</div></div>
+  `;
+
+  const elenco = [...cantieri].sort((a,b)=>a.periodoInizio.localeCompare(b.periodoInizio)).slice(0,8);
+  document.getElementById('ds-cant').innerHTML = elenco.length ? elenco.map(c=>`
+    <div class="ri">
+      <div>
+        <div class="rlt">${c.nome}</div>
+        <div class="rls">${c.committente||'—'} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}</div>
+      </div>
+      <span class="bx ${c.periodoInizio<=oggi&&(c.periodoFine||c.periodoInizio)>=oggi?'bt':c.periodoInizio>oggi?'bz':'br'}">${c.periodoInizio<=oggi&&(c.periodoFine||c.periodoInizio)>=oggi?'in corso':c.periodoInizio>oggi?'in arrivo':'concluso'}</span>
+    </div>
+  `).join('') : `<div class="ri"><div class="rls">Nessun cantiere ancora creato — vai su "Cantieri" per aggiungerne uno.</div></div>`;
+
+  // prossimi interventi su tutti i cantieri, ordinati per data
+  const interventi = [];
+  cantieri.forEach(c=>(c.interventi||[]).forEach(iv=>interventi.push({...iv, cantiereNome:c.nome})));
+  interventi.sort((a,b)=>a.data.localeCompare(b.data));
+  const prossimi = interventi.filter(iv=>iv.data>=oggi).slice(0,6);
+
+  document.getElementById('ds-interventi').innerHTML = prossimi.length ? prossimi.map(iv=>`
+    <div class="ri">
+      <div>
+        <div class="rlt">${iv.descrizione}</div>
+        <div class="rls">${iv.cantiereNome} · squadra: ${iv.squadra||'—'}</div>
+      </div>
+      <span class="mn" style="color:var(--teal);font-size:12px">${fdate(iv.data)}</span>
+    </div>
+  `).join('') : `<div class="ri"><div class="rls">Nessun intervento programmato.</div></div>`;
+}
+
+// ============================================================
+// SYNC CLOUD — Supabase (stessa tabella/riga del Gestionale)
+// Merge selettivo: legge tutta la riga remota, aggiorna SOLO
+// DB.cantieri sul lato planning, e scrive nella stessa riga
+// senza toccare i campi di competenza del gestionale.
+// ============================================================
+const SUPABASE_URL = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+const SUPABASE_TABLE = 'gestionale_dati';
+
+async function cloudVerificaConnessione(){
+  const dot = document.getElementById('cloud-status-dot');
+  const txt = document.getElementById('cloud-status-text');
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=aggiornato_il`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if(res.ok){ dot.style.background = '#4be87a'; txt.textContent = 'Connesso ✓'; return true; }
+    dot.style.background = '#e84b4b'; txt.textContent = 'Errore connessione'; return false;
+  }catch(err){
+    dot.style.background = '#e84b4b'; txt.textContent = 'Offline'; return false;
+  }
+}
+
+// Salva: legge prima il remoto, fa merge SOLO su cantieri, poi fa PATCH
+async function cloudSalvaOra(){
+  const log = document.getElementById('cloud-log');
+  if(log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Sincronizzazione...</div>'; }
+  try{
+    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await getRes.json();
+    const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
+
+    // merge: tengo tutto il remoto (presenze, saldi, documenti, ecc.)
+    // e sovrascrivo solo il campo cantieri con la versione locale del planning
+    const merged = { ...remoto, cantieri: DB.cantieri };
+
+    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ dati: merged, aggiornato_il: new Date().toISOString() })
+    });
+
+    if(patchRes.ok){
+      if(log) log.innerHTML = '<div style="color:var(--green)">✓ Salvato sul cloud (cantieri sincronizzati col gestionale)</div>';
+      toast('Sincronizzato ✓');
+      document.getElementById('cloud-status-dot').style.background = '#4be87a';
+    } else {
+      if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore: ${patchRes.status}</div>`;
+    }
+  }catch(err){
+    if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore di rete: ${err.message}</div>`;
+  }
+}
+
+// Carica: prende SOLO il campo cantieri dal remoto, lascia intatto il resto del DB locale
+async function cloudCaricaOra(){
+  const log = document.getElementById('cloud-log');
+  if(log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Caricamento...</div>'; }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await res.json();
+    if(!rows.length || !rows[0].dati){
+      if(log) log.innerHTML = '<div style="color:var(--text2)">ℹ Nessun dato sul cloud ancora.</div>';
+      return;
+    }
+    const remoto = rows[0].dati;
+    DB.cantieri = remoto.cantieri || [];
+    save();
+    renderDash();
+    if(log) log.innerHTML = '<div style="color:var(--green)">✓ Cantieri caricati dal cloud</div>';
+    toast('Dati caricati ✓');
+  }catch(err){
+    if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore: ${err.message}</div>`;
+  }
+}
+
+// ============================================================
+// GOOGLE CALENDAR — login OAuth (token implicito) + import eventi
+// Sola lettura: usiamo lo scope calendar.readonly, mai scrittura.
+// Stesso calendario condiviso usato dal Gestionale.
+// ============================================================
+const GCAL_CLIENT_ID = '728971439296-02m5rg881uil90qtqct0cqsnc7bln8om.apps.googleusercontent.com';
+const GCAL_CALENDAR_ID = 'primary';
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+
+let gcalTokenClient = null;
+let gcalAccessToken = null;
+let gcalUltimiEventi = []; // cache ultima lista caricata
+let _evPreviewSrc = null;  // evento sorgente in fase di anteprima/modifica
+
+function gcalInitClient(){
+  if(gcalTokenClient || !window.google || !google.accounts) return;
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID,
+    scope: GCAL_SCOPE,
+    callback: (resp)=>{
+      if(resp && resp.access_token){
+        gcalAccessToken = resp.access_token;
+        sessionStorage.setItem('gcal_token', gcalAccessToken);
+        gcalRefreshUI();
+        toast('Connesso a Google Calendar ✓');
+      }
+    }
+  });
+}
+
+function gcalLogin(){
+  if(!window.google || !google.accounts){
+    toast('Libreria Google non ancora caricata, riprova');
+    return;
+  }
+  gcalInitClient();
+  gcalTokenClient.requestAccessToken();
+}
+
+function gcalLogout(){
+  gcalAccessToken = null;
+  sessionStorage.removeItem('gcal_token');
+  gcalUltimiEventi = [];
+  gcalRefreshUI();
+  toast('Disconnesso da Google Calendar');
+}
+
+function gcalRefreshUI(){
+  const dot = document.getElementById('gcal-dot');
+  const txt = document.getElementById('gcal-status-text');
+  const loginBox = document.getElementById('gcal-login-box');
+  const rangeBox = document.getElementById('gcal-range-box');
+  const eventiWrap = document.getElementById('gcal-eventi-wrap');
+  if(!dot) return; // pagina non ancora nel DOM
+
+  if(gcalAccessToken){
+    dot.classList.add('ok');
+    txt.textContent = 'Connesso a Google Calendar ✓';
+    loginBox.style.display = 'none';
+    rangeBox.style.display = 'block';
+    // imposta range default: oggi -> +60 giorni, se non già impostato
+    const f = document.getElementById('gcal-from');
+    const t = document.getElementById('gcal-to');
+    if(f && !f.value){
+      const now = new Date();
+      const plus60 = new Date(now.getTime() + 60*24*3600*1000);
+      f.value = now.toISOString().slice(0,10);
+      t.value = plus60.toISOString().slice(0,10);
+    }
+  } else {
+    dot.classList.remove('ok');
+    txt.textContent = 'Non collegato a Google Calendar';
+    loginBox.style.display = 'block';
+    rangeBox.style.display = 'none';
+    eventiWrap.style.display = 'none';
+  }
+}
+
+async function gcalCaricaEventi(){
+  if(!gcalAccessToken){ toast('Accedi prima con Google'); return; }
+  const from = document.getElementById('gcal-from').value;
+  const to = document.getElementById('gcal-to').value;
+  if(!from || !to){ toast('Seleziona un periodo valido'); return; }
+
+  const timeMin = new Date(from+'T00:00:00').toISOString();
+  const timeMax = new Date(to+'T23:59:59').toISOString();
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GCAL_CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=100`;
+
+  try{
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${gcalAccessToken}` } });
+    if(res.status === 401){
+      toast('Sessione Google scaduta, accedi di nuovo');
+      gcalLogout();
+      return;
+    }
+    if(!res.ok){
+      toast('Errore lettura Calendar: '+res.status);
+      return;
+    }
+    const data = await res.json();
+    gcalUltimiEventi = data.items || [];
+    renderGcalEventi();
+  }catch(err){
+    toast('Errore di rete: '+err.message);
+  }
+}
+
+function gcalEventGiaImportato(ev){
+  return (DB.cantieri||[]).some(c => c.gcalEventId === ev.id);
+}
+
+function gcalEventoDaEscludere(ev){
+  // escludi compleanni e eventi automatici Google
+  if(!ev.summary) return true;
+  const titolo = (ev.summary||'').toLowerCase();
+  if(titolo.includes('compleanno') || titolo.includes('birthday')) return true;
+  // Google marca i compleanni con questo tipo di ID
+  if(ev.id && ev.id.includes('_bday_')) return true;
+  // escludi eventi da calendari di terze parti (tipo contatti)
+  if(ev.organizer && ev.organizer.displayName && 
+     (ev.organizer.displayName.toLowerCase().includes('contact') || 
+      ev.organizer.displayName.toLowerCase().includes('birthday'))) return true;
+  return false;
+}
+
+function renderGcalEventi(){
+  const wrap = document.getElementById('gcal-eventi-wrap');
+  const list = document.getElementById('gcal-eventi-list');
+  wrap.style.display = 'block';
+
+  const eventiFiltrati = gcalUltimiEventi.filter(ev => !gcalEventoDaEscludere(ev));
+
+  if(!eventiFiltrati.length){
+    list.innerHTML = `<div class="ev-card"><div class="ev-info"><div class="ev-meta">Nessun evento trovato nel periodo selezionato (esclusi compleanni e ricorrenze automatiche).</div></div></div>`;
+    return;
+  }
+
+  list.innerHTML = eventiFiltrati.map((ev, idx)=>{
+    const idxOriginale = gcalUltimiEventi.indexOf(ev);
+    const inizio = (ev.start && (ev.start.date || ev.start.dateTime)) ? (ev.start.date || ev.start.dateTime.slice(0,10)) : '—';
+    const fine = (ev.end && (ev.end.date || ev.end.dateTime)) ? (ev.end.date || ev.end.dateTime.slice(0,10)) : inizio;
+    const importato = gcalEventGiaImportato(ev);
+    return `
+    <div class="ev-card ${importato?'imported':''}">
+      <div class="ev-info">
+        <div class="ev-title">${ev.summary || '(senza titolo)'}</div>
+        <div class="ev-meta">${fdate(inizio)} → ${fdate(fine)}${ev.location?' · '+ev.location:''}</div>
+      </div>
+      <div class="ev-actions">
+        ${importato
+          ? `<span class="bx bg">già importato</span>`
+          : `<button class="bs" onclick="apriAnteprimaEvento(${idxOriginale})">✏️ Anteprima e modifica</button>
+             <button class="bp" onclick="importaEventoDiretto(${idxOriginale})">⚡ Importa subito</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Costruisce i campi base di un cantiere a partire da un evento Calendar
+function gcalEventoToCantiereFields(ev){
+  const inizio = (ev.start && (ev.start.date || ev.start.dateTime)) ? (ev.start.date || ev.start.dateTime.slice(0,10)) : today();
+  const fine = (ev.end && (ev.end.date || ev.end.dateTime)) ? (ev.end.date || ev.end.dateTime.slice(0,10)) : inizio;
+  return {
+    nome: ev.summary || 'Cantiere senza nome',
+    luogo: ev.location || '',
+    periodoInizio: inizio,
+    periodoFine: fine,
+    note: ev.description || '',
+    gcalEventId: ev.id
+  };
+}
+
+function creaCantiereDaCampi(fields){
+  if(!DB.cantieri) DB.cantieri = [];
+  const c = {
+    id: uid(),
+    nome: fields.nome,
+    committente: fields.committente || '',
+    luogo: fields.luogo || '',
+    periodoInizio: fields.periodoInizio,
+    periodoFine: fields.periodoFine,
+    stato: 'da confermare',
+    note: fields.note || '',
+    ricavo: 0,
+    costo: 0,
+    personaleAssegnato: [],
+    attrezzature: [],
+    serviziEsterni: [],
+    materiali: [],
+    mezzi: [],
+    interventi: [],
+    gcalEventId: fields.gcalEventId || null
+  };
+  DB.cantieri.push(c);
+  save();
+  return c;
+}
+
+function importaEventoDiretto(idx){
+  const ev = gcalUltimiEventi[idx];
+  if(!ev) return;
+  const fields = gcalEventoToCantiereFields(ev);
+  creaCantiereDaCampi(fields);
+  toast(`Cantiere "${fields.nome}" creato ✓`);
+  renderGcalEventi();
+  renderDash();
+}
+
+function apriAnteprimaEvento(idx){
+  const ev = gcalUltimiEventi[idx];
+  if(!ev) return;
+  _evPreviewSrc = ev;
+  const fields = gcalEventoToCantiereFields(ev);
+  document.getElementById('evp-nome').value = fields.nome;
+  document.getElementById('evp-committente').value = '';
+  document.getElementById('evp-luogo').value = fields.luogo;
+  document.getElementById('evp-inizio').value = fields.periodoInizio;
+  document.getElementById('evp-fine').value = fields.periodoFine;
+  document.getElementById('evp-note').value = fields.note;
+  openModal('modal-ev-preview');
+}
+
+function confermaCreaCantiereDaEvento(){
+  const fields = {
+    nome: document.getElementById('evp-nome').value.trim() || 'Cantiere senza nome',
+    committente: document.getElementById('evp-committente').value.trim(),
+    luogo: document.getElementById('evp-luogo').value.trim(),
+    periodoInizio: document.getElementById('evp-inizio').value || today(),
+    periodoFine: document.getElementById('evp-fine').value || document.getElementById('evp-inizio').value || today(),
+    note: document.getElementById('evp-note').value.trim(),
+    gcalEventId: _evPreviewSrc ? _evPreviewSrc.id : null
+  };
+  creaCantiereDaCampi(fields);
+  toast(`Cantiere "${fields.nome}" creato ✓`);
+  closeModal('modal-ev-preview');
+  _evPreviewSrc = null;
+  renderGcalEventi();
+  renderDash();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+load();
+clock();
+setInterval(clock, 30000);
+nav('dash');
+setTimeout(()=>{ cloudVerificaConnessione(); }, 400);
+// ripristina sessione Google Calendar se presente (dura quanto il tab)
+gcalAccessToken = sessionStorage.getItem('gcal_token') || null;
+</script>
+</body>
+</html>
