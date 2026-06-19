@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a1628">
+<title>81|00 Planning Lavori</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0a1628;--navy2:#0f1f3d;--teal:#00b4a6;--teal2:#00d4c4;--td:rgba(0,180,166,.13);--td2:rgba(0,180,166,.06);--gold:#e8b84b;--red:#e84b4b;--green:#4be87a;--text:#e8eaf0;--text2:#8a95a8;--brd:rgba(255,255,255,.07);--card:rgba(255,255,255,.04);--r:12px;--r2:8px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--navy);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
+#app{display:flex;flex-direction:column;height:100dvh}
+/* HEADER */
+#hdr{background:var(--navy2);border-bottom:1px solid var(--brd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10}
+#hdr-logo{font-size:21px;font-weight:800;color:var(--teal)}
+#hdr-logo span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:1px}
+#hdr-r{display:flex;align-items:center;gap:12px}
+#hdr-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-align:right}
+#hdr-date b{display:block;color:var(--teal);font-size:13px}
+#cloud-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+#cloud-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2);transition:background .3s}
+/* LAYOUT */
+#main{display:flex;flex:1;overflow:hidden}
+#sb{width:215px;background:var(--navy2);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.ns{padding:18px 12px 7px;font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:10px;padding:10px 15px;margin:2px 7px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;border:1px solid transparent}
+.ni:hover{background:var(--td2);color:var(--text)}
+.ni.active{background:var(--td);color:var(--teal);border-color:rgba(0,180,166,.2)}
+#sbf{margin-top:auto;padding:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:7px}
+.btn-sb{width:100%;padding:8px;border-radius:var(--r2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-teal{background:var(--td);color:var(--teal);border:1px solid rgba(0,180,166,.3)}
+.btn-teal:hover{background:var(--teal);color:var(--navy)}
+.btn-gold{background:rgba(232,184,75,.12);color:var(--gold);border:1px solid rgba(232,184,75,.3)}
+.btn-gold:hover{background:var(--gold);color:var(--navy)}
+.btn-gray{background:transparent;color:var(--text2);border:1px solid var(--brd)}
+.btn-gray:hover{border-color:var(--text2);color:var(--text)}
+/* CONTENT */
+#cnt{flex:1;overflow-y:auto;padding:22px}
+.pg{display:none}.pg.active{display:block;animation:fi .18s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.pt{font-size:25px;font-weight:800;margin-bottom:3px}
+.ps{font-size:13px;color:var(--text2);margin-bottom:20px;font-family:'DM Mono',monospace}
+/* STAT CARDS */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;margin-bottom:20px}
+.sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:15px}
+.sc .lb{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.sc .vl{font-size:24px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace}
+.sc .sb2{font-size:11px;color:var(--text2);margin-top:3px}
+/* FORM */
+.fc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:18px}
+.fc h3{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fg label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px}
+.fg input,.fg select,.fg textarea{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;outline:none;width:100%;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal)}
+.fg textarea{resize:vertical;min-height:60px}
+.fg select option{background:var(--navy2)}
+.fa{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
+.bp{padding:9px 18px;background:var(--teal);color:var(--navy);border:none;border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
+.bp:hover{background:var(--teal2)}
+.bs{padding:9px 18px;background:transparent;color:var(--text2);border:1px solid var(--brd);border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:600;font-size:13px;cursor:pointer}
+.bd{padding:5px 10px;background:transparent;color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:600;font-size:11px;cursor:pointer}
+.bd:hover{background:rgba(232,75,75,.1)}
+/* TABLE */
+.tc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.th{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap;gap:8px}
+.th h3{font-size:13px;font-weight:700}
+.ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
+.ts:focus{border-color:var(--teal)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:9px 14px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);background:rgba(255,255,255,.02);border-bottom:1px solid var(--brd);font-weight:700}
+tbody tr{border-bottom:1px solid var(--brd);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--td2)}
+tbody td{padding:10px 14px;vertical-align:middle}
+.mn{font-family:'DM Mono',monospace}
+/* BADGE */
+.bx{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
+.bg{background:rgba(75,232,122,.15);color:var(--green)}
+.br{background:rgba(232,75,75,.15);color:var(--red)}
+.bo{background:rgba(232,184,75,.15);color:var(--gold)}
+.bt{background:var(--td);color:var(--teal)}
+.bz{background:rgba(138,149,168,.15);color:var(--text2)}
+/* DASHBOARD */
+.dg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+@media(min-width:860px){.dg{grid-template-columns:repeat(4,1fr)}}
+.dc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
+.dc .dl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.dc .dv{font-size:28px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace;line-height:1}
+.dc .ds{font-size:11px;color:var(--text2);margin-top:5px;font-family:'DM Mono',monospace}
+.rl{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
+.ri{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--brd);gap:10px}
+.ri:last-child{border-bottom:none}
+.ri .rlt{font-size:13px;font-weight:600}
+.ri .rls{font-size:10px;color:var(--text2);margin-top:2px;font-family:'DM Mono',monospace}
+.sl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:9px;font-weight:700}
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.mo.open{display:flex}
+.md{background:var(--navy2);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:600px;max-height:92dvh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd)}
+.mh h3{font-size:15px;font-weight:700}
+.mc{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1}
+.mb{padding:18px 20px}
+.mf{padding:13px 20px;border-top:1px solid var(--brd);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+/* MOBILE NAV */
+#mnav{display:none;background:var(--navy2);border-top:1px solid var(--brd);flex-shrink:0}
+.mni{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 2px}
+.mni::-webkit-scrollbar{display:none}
+.mni-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 12px;cursor:pointer;font-size:8px;font-weight:700;text-transform:uppercase;color:var(--text2);border-top:2px solid transparent;flex-shrink:0;white-space:nowrap}
+.mni-item .mii{font-size:18px}
+.mni-item.active{color:var(--teal);border-top-color:var(--teal)}
+/* IMPORT CALENDAR */
+.gcal-login-box{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:24px;text-align:center;margin-bottom:18px}
+.gcal-login-box p{font-size:13px;color:var(--text2);margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto}
+.gcal-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:14px}
+.gcal-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2)}
+.gcal-status-dot.ok{background:var(--green)}
+.ev-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ev-card.imported{opacity:.55}
+.ev-info{flex:1;min-width:180px}
+.ev-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.ev-meta{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.ev-actions{display:flex;gap:7px;flex-wrap:wrap}
+@media(max-width:700px){
+  #sb{display:none}#mnav{display:block}#cnt{padding:12px}
+  .sg{grid-template-columns:repeat(2,1fr)}.fg{grid-template-columns:1fr}
+  .dg{grid-template-columns:repeat(2,1fr)}
+  thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none}
+}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal);color:var(--navy);padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<div id="hdr">
+  <div id="hdr-logo">81|00<span>Planning Lavori</span></div>
+  <div id="hdr-r">
+    <div id="cloud-status"><span id="cloud-status-dot"></span><span id="cloud-status-text">—</span></div>
+    <div id="hdr-date"><b id="hdate"></b><span id="htime"></span></div>
+  </div>
+</div>
+
+<div id="main">
+<!-- SIDEBAR -->
+<div id="sb">
+  <div class="ns">Overview</div>
+  <div class="ni active" onclick="nav('dash')">⬛ Dashboard</div>
+  <div class="ns">Pianificazione</div>
+  <div class="ni" onclick="nav('cantieri')">🏗️ Cantieri</div>
+  <div class="ni" onclick="nav('calendario')">📅 Calendario</div>
+  <div class="ni" onclick="nav('import-cal')">📥 Importa da Calendar</div>
+  <div class="ni" onclick="nav('monitor')">🪑 Monitor Risorse</div>
+  <div class="ns">Sistema</div>
+  <div class="ni" onclick="nav('sync')">☁️ Sync & Calendar</div>
+  <div id="sbf">
+    <button class="btn-sb btn-gold" onclick="nav('cantieri')">📊 Esporta programma</button>
+    <button class="btn-sb btn-teal" onclick="cloudSalvaOra()">☁️ Salva sul cloud</button>
+    <button class="btn-sb btn-gray" onclick="cloudCaricaOra()">📂 Carica dal cloud</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="cnt">
+
+  <!-- DASHBOARD -->
+  <div id="pg-dash" class="pg active">
+    <div class="pt">Dashboard</div>
+    <div class="ps" id="ds-sub"></div>
+    <div class="dg" id="ds-kpi"></div>
+    <div class="sl">Cantieri in corso / in arrivo</div>
+    <div class="rl" id="ds-cant" style="margin-bottom:18px"></div>
+    <div class="sl">Prossimi interventi</div>
+    <div class="rl" id="ds-interventi"></div>
+  </div>
+
+  <!-- CANTIERI -->
+  <div id="pg-cantieri" class="pg">
+    <div class="pt">Cantieri</div>
+    <div class="ps">Tutti i cantieri pianificati e in corso</div>
+
+    <!-- FILTRI + AZIONI -->
+    <div style="display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <input class="ts" id="cant-search" placeholder="🔍 Cerca cantiere..." oninput="renderCantieri()" style="width:200px">
+      <select class="ts" id="cant-filter" onchange="renderCantieri()" style="width:150px">
+        <option value="">Tutti gli stati</option>
+        <option value="in corso">In corso</option>
+        <option value="in arrivo">In arrivo</option>
+        <option value="concluso">Concluso</option>
+        <option value="da confermare">Da confermare</option>
+      </select>
+      <button class="bp" onclick="apriNuovoCantiere()" style="margin-left:auto">➕ Nuovo cantiere</button>
+    </div>
+
+    <!-- LISTA CANTIERI -->
+    <div id="cant-list"></div>
+
+    <!-- EXPORT PROGRAMMA LAVORI -->
+    <div class="fc" style="margin-top:20px">
+      <h3>📊 Esporta programma lavori</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Genera un documento con tutti i cantieri nel periodo scelto, inclusi interventi, attrezzature e forniture. Condivisibile con i dipendenti.</p>
+      <div class="fg">
+        <div><label>Da</label><input type="date" id="exp-from"></div>
+        <div><label>A</label><input type="date" id="exp-to"></div>
+      </div>
+      <div class="fa" style="margin-top:12px">
+        <button class="bp" onclick="esportaExcel()">📊 Esporta Excel (.xlsx)</button>
+        <button class="bs" onclick="esportaPDF()">📄 Esporta PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NUOVO/MODIFICA CANTIERE -->
+  <div class="mo" id="modal-cantiere">
+    <div class="md" style="max-width:700px">
+      <div class="mh">
+        <h3 id="modal-cant-title">Nuovo cantiere</h3>
+        <button class="mc" onclick="closeModal('modal-cantiere')">✕</button>
+      </div>
+      <div class="mb">
+        <!-- DATI BASE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>Dati generali</h3>
+          <div class="fg">
+            <div><label>Nome cantiere *</label><input id="mc-nome" placeholder="es. Belvedere San Leucio"></div>
+            <div><label>Committente</label><input id="mc-committente" placeholder="es. Comune di Caserta"></div>
+            <div><label>Luogo</label><input id="mc-luogo" placeholder="es. Via Roma 1, Caserta"></div>
+            <div><label>Stato</label>
+              <select id="mc-stato">
+                <option value="da confermare">Da confermare</option>
+                <option value="in arrivo">In arrivo</option>
+                <option value="in corso">In corso</option>
+                <option value="concluso">Concluso</option>
+              </select>
+            </div>
+            <div><label>Data inizio</label><input type="date" id="mc-inizio"></div>
+            <div><label>Data fine</label><input type="date" id="mc-fine"></div>
+            <div><label>Ricavo (€)</label><input type="number" id="mc-ricavo" placeholder="0"></div>
+            <div><label>Costo (€)</label><input type="number" id="mc-costo" placeholder="0"></div>
+          </div>
+          <div style="margin-top:10px">
+            <label style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note</label>
+            <textarea id="mc-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:60px;outline:none;resize:vertical"></textarea>
+          </div>
+        </div>
+
+        <!-- NOTIFICA SCADENZA -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🔔 Notifica scadenza</h3>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="mc-notifica" onchange="toggleNotificaGiorni()" style="accent-color:var(--teal);width:16px;height:16px">
+              Avvisami prima della fine del cantiere
+            </label>
+            <div id="mc-notifica-giorni-wrap" style="display:none;align-items:center;gap:7px">
+              <select id="mc-notifica-giorni" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:5px 8px;outline:none">
+                <option value="1">1 giorno prima</option>
+                <option value="2" selected>2 giorni prima</option>
+                <option value="3">3 giorni prima</option>
+                <option value="5">5 giorni prima</option>
+                <option value="7">7 giorni prima</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PERSONALE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>👷 Personale assegnato</h3>
+          <div id="mc-personale-list" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-personale-input" placeholder="Nome dipendente" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:140px">
+            <button class="bs" onclick="aggiungiPersonale()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- ATTREZZATURE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🔧 Attrezzature proprie</h3>
+          <div id="mc-attr-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-attr-tipo" placeholder="Tipo (es. Sedie mono-scocca)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:120px">
+            <input id="mc-attr-qty" type="number" placeholder="Qtà" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:70px">
+            <button class="bs" onclick="aggiungiAttr()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- SERVIZI ESTERNI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🏢 Servizi esterni / Forniture</h3>
+          <div id="mc-serv-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-serv-fornitore" placeholder="Fornitore" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:100px">
+            <input id="mc-serv-desc" placeholder="Descrizione servizio" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:120px">
+            <input id="mc-serv-prezzo" type="number" placeholder="€" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:70px">
+            <button class="bs" onclick="aggiungiServ()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- MATERIALI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>📦 Materiali di consumo</h3>
+          <div id="mc-mat-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-mat-nome" placeholder="Materiale" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:120px">
+            <input id="mc-mat-qty" placeholder="Qtà + unità (es. 20 mt)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:100px">
+            <button class="bs" onclick="aggiungiMat()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- MEZZI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🚛 Mezzi impiegati</h3>
+          <div id="mc-mezzi-list" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-mezzo-input" placeholder="Es. Furgone Iveco Daily" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:140px">
+            <button class="bs" onclick="aggiungiMezzo()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- INTERVENTI -->
+        <div class="fc">
+          <h3>🔨 Interventi programmati</h3>
+          <div id="mc-interv-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input type="date" id="mc-interv-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none">
+            <input id="mc-interv-desc" placeholder="Descrizione (es. Montaggio palco)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:140px">
+            <input id="mc-interv-squadra" placeholder="Squadra" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:100px">
+            <button class="bs" onclick="aggiungiInterv()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bd" id="mc-btn-elimina" onclick="eliminaCantiere()" style="margin-right:auto">🗑️ Elimina</button>
+        <button class="bs" onclick="closeModal('modal-cantiere')">Annulla</button>
+        <button class="bp" onclick="salvaCantiere()">💾 Salva cantiere</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALENDARIO (placeholder) -->
+  <div id="pg-calendario" class="pg">
+    <div class="pt">Calendario & Gantt</div>
+
+    <!-- SELETTORE PERIODO CENTRALE -->
+    <div class="fc" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:700">Periodo</span>
+        <input type="date" id="cal-from" onchange="syncPeriodo('from')" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+        <span style="color:var(--text2)">→</span>
+        <input type="date" id="cal-to" onchange="syncPeriodo('to')" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+        <div style="display:flex;gap:5px;margin-left:4px;flex-wrap:wrap">
+          <button class="bs" onclick="setPreset('1m')" style="font-size:11px;padding:4px 10px">1 mese</button>
+          <button class="bs" onclick="setPreset('3m')" style="font-size:11px;padding:4px 10px">3 mesi</button>
+          <button class="bs" onclick="setPreset('6m')" style="font-size:11px;padding:4px 10px">6 mesi</button>
+          <button class="bs" onclick="setPreset('1y')" style="font-size:11px;padding:4px 10px">1 anno</button>
+        </div>
+        <div style="display:flex;gap:5px;margin-left:auto;flex-wrap:wrap">
+          <button class="bp" onclick="esportaExcelDaCal()" style="font-size:11px;padding:5px 12px">📊 Excel</button>
+          <button class="bs" onclick="esportaPDFDaCal()" style="font-size:11px;padding:5px 12px">📄 PDF</button>
+        </div>
+      </div>
+      <!-- BARRA VISUALE PERIODO -->
+      <div id="cal-timeline-bar" style="margin-top:12px;height:6px;background:var(--navy);border-radius:3px;position:relative;overflow:hidden">
+        <div id="cal-timeline-fill" style="position:absolute;height:100%;background:var(--teal);border-radius:3px;transition:all .3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:3px">
+        <span id="cal-bar-label-l" style="font-size:9px;color:var(--text2);font-family:'DM Mono',monospace"></span>
+        <span id="cal-bar-label-r" style="font-size:9px;color:var(--text2);font-family:'DM Mono',monospace"></span>
+      </div>
+    </div>
+
+    <!-- TOGGLE VISTA -->
+    <div style="display:flex;gap:7px;margin-bottom:14px">
+      <button id="btn-gantt" class="bp" onclick="setVistaCalendario('gantt')" style="font-size:12px;padding:6px 16px">📊 Gantt</button>
+      <button id="btn-mensile" class="bs" onclick="setVistaCalendario('mensile')" style="font-size:12px;padding:6px 16px">📅 Mensile</button>
+    </div>
+
+    <!-- VISTA GANTT -->
+    <div id="vista-gantt" style="overflow-x:auto">
+      <div id="gantt-wrap"></div>
+    </div>
+
+    <!-- VISTA MENSILE -->
+    <div id="vista-mensile" style="display:none">
+      <div id="mensile-wrap"></div>
+    </div>
+  </div>
+
+  <!-- IMPORTA DA CALENDAR -->
+  <div id="pg-import-cal" class="pg">
+    <div class="pt">Importa da Calendar</div>
+    <div class="ps">Leggi gli eventi dal calendario condiviso e trasformali in cantieri</div>
+
+    <div class="gcal-login-box" id="gcal-login-box">
+      <div class="gcal-status"><span class="gcal-status-dot" id="gcal-dot"></span><span id="gcal-status-text">Non collegato a Google Calendar</span></div>
+      <p>Accedi con il tuo account Google per leggere gli eventi dal calendario condiviso col Gestionale 81|00. L'accesso è in sola lettura: il Planning non modifica né cancella nulla sul tuo Calendar.</p>
+      <button class="bp" id="gcal-btn" onclick="gcalLogin()">🔑 Accedi con Google</button>
+    </div>
+
+    <div class="fc" id="gcal-range-box" style="display:none">
+      <h3>Periodo da importare</h3>
+      <div class="fg">
+        <div><label>Da</label><input type="date" id="gcal-from"></div>
+        <div><label>A</label><input type="date" id="gcal-to"></div>
+      </div>
+      <div class="fa">
+        <button class="bp" onclick="gcalCaricaEventi()">🔄 Carica eventi</button>
+        <button class="bs" onclick="gcalLogout()">Disconnetti</button>
+      </div>
+    </div>
+
+    <div id="gcal-eventi-wrap" style="display:none">
+      <div class="sl">Eventi trovati</div>
+      <div id="gcal-eventi-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ANTEPRIMA/MODIFICA EVENTO -> CANTIERE -->
+  <div class="mo" id="modal-ev-preview">
+    <div class="md">
+      <div class="mh"><h3>Crea cantiere da evento</h3><button class="mc" onclick="closeModal('modal-ev-preview')">✕</button></div>
+      <div class="mb">
+        <div class="fg">
+          <div><label>Nome cantiere</label><input id="evp-nome"></div>
+          <div><label>Committente</label><input id="evp-committente"></div>
+          <div><label>Luogo</label><input id="evp-luogo"></div>
+          <div><label>Inizio</label><input type="date" id="evp-inizio"></div>
+          <div><label>Fine</label><input type="date" id="evp-fine"></div>
+        </div>
+        <div style="margin-top:10px"><label style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note (dalla descrizione evento)</label><textarea id="evp-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:80px;outline:none"></textarea></div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-ev-preview')">Annulla</button>
+        <button class="bp" onclick="confermaCreaCantiereDaEvento()">💾 Crea cantiere</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONITOR RISORSE (placeholder) -->
+  <div id="pg-monitor" class="pg">
+    <div class="pt">Monitor Risorse</div>
+    <div class="ps">Disponibilità sedie/attrezzature — arriva più avanti</div>
+  </div>
+
+
+  <!-- SYNC (placeholder, base cloud già attiva) -->
+  <div id="pg-sync" class="pg">
+    <div class="pt">Sync & Calendar</div>
+    <div class="ps">Stato sincronizzazione cloud condivisa col Gestionale</div>
+    <div class="fc">
+      <h3>Cloud (Supabase — condiviso col Gestionale)</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Il Planning legge e scrive la stessa riga cloud del Gestionale 81|00.
+        Aggiorna solo i propri campi (cantieri estesi, interventi), senza toccare presenze, saldi o documenti del gestionale.
+      </p>
+      <div class="fa">
+        <button class="bp" onclick="cloudSalvaOra()">☁️ Salva sul cloud ora</button>
+        <button class="bs" onclick="cloudCaricaOra()">📂 Carica dal cloud ora</button>
+      </div>
+      <div id="cloud-log" style="display:none;background:var(--navy);border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:11px;margin-top:12px"></div>
+    </div>
+    <div class="fc">
+      <h3>Google Calendar</h3>
+      <p style="font-size:12px;color:var(--text2)">Sincronizzazione manuale — arriva in uno step successivo, dopo aver consolidato la struttura cantieri/interventi.</p>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- MOBILE NAV -->
+<div id="mnav">
+  <div class="mni">
+    <div class="mni-item active" onclick="nav('dash')"><span class="mii">⬛</span>Dash</div>
+    <div class="mni-item" onclick="nav('cantieri')"><span class="mii">🏗️</span>Cantieri</div>
+    <div class="mni-item" onclick="nav('calendario')"><span class="mii">📅</span>Cal.</div>
+    <div class="mni-item" onclick="nav('import-cal')"><span class="mii">📥</span>Import</div>
+    <div class="mni-item" onclick="nav('monitor')"><span class="mii">🪑</span>Monitor</div>
+    <div class="mni-item" onclick="nav('sync')"><span class="mii">☁️</span>Sync</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+</div>
+
+<script>
+// ============================================================
+// DB — struttura dati locale (Planning Lavori)
+// Condivide la stessa riga cloud Supabase del Gestionale 81|00.
+// Scrive/aggiorna SOLO il campo "cantieri" (esteso) e non tocca
+// presenze, saldi, documenti, pagamenti che restano di competenza
+// del Gestionale.
+// ============================================================
+const DB = {};
+
+function seedVuoto(){
+  return {
+    cantieri: [],          // entità estesa: vedi creaCantiere()
+    _meta: { ultimaModifica: null }
+  };
+}
+
+function load(){
+  try{
+    const s = localStorage.getItem('otto8100_planning_v1');
+    if(s){
+      Object.assign(DB, JSON.parse(s));
+      if(!DB.cantieri) DB.cantieri = [];
+      return;
+    }
+  }catch(e){}
+  Object.assign(DB, seedVuoto());
+  save();
+}
+
+function save(){
+  localStorage.setItem('otto8100_planning_v1', JSON.stringify(DB));
+  DB._meta = DB._meta || {};
+  DB._meta.ultimaModifica = new Date().toISOString();
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return parseFloat(n||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
+function fdate(s){ if(!s) return '—'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; }
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function clock(){
+  const now = new Date();
+  document.getElementById('hdate').textContent = now.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('htime').textContent = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ============================================================
+// NAVIGAZIONE
+// ============================================================
+function nav(page){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+page).classList.add('active');
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mni-item').forEach(n=>n.classList.remove('active'));
+  // riattiva il nav item cliccato (matching su onclick contenente la page)
+  document.querySelectorAll('.ni').forEach(n=>{ if(n.getAttribute('onclick')===`nav('${page}')`) n.classList.add('active'); });
+  document.querySelectorAll('.mni-item').forEach(n=>{ if(n.getAttribute('onclick')===`nav('${page}')`) n.classList.add('active'); });
+  if(page==='dash') renderDash();
+  if(page==='cantieri') renderCantieri();
+  if(page==='calendario'){ initCalendario(); }
+  if(page==='import-cal') gcalRefreshUI();
+}
+
+// ============================================================
+// DASHBOARD (versione minima — verrà arricchita insieme ai Cantieri)
+// ============================================================
+function renderDash(){
+  document.getElementById('ds-sub').textContent = `Aggiornato al ${fdate(today())}`;
+
+  const cantieri = DB.cantieri || [];
+  const oggi = today();
+  const inCorso = cantieri.filter(c => c.periodoInizio <= oggi && (c.periodoFine||c.periodoInizio) >= oggi);
+  const futuri = cantieri.filter(c => c.periodoInizio > oggi);
+
+  document.getElementById('ds-kpi').innerHTML = `
+    <div class="dc"><div class="dl">Cantieri totali</div><div class="dv">${cantieri.length}</div></div>
+    <div class="dc"><div class="dl">In corso oggi</div><div class="dv">${inCorso.length}</div></div>
+    <div class="dc"><div class="dl">In arrivo</div><div class="dv">${futuri.length}</div></div>
+    <div class="dc"><div class="dl">Interventi totali</div><div class="dv">${cantieri.reduce((a,c)=>a+(c.interventi||[]).length,0)}</div></div>
+  `;
+
+  const elenco = [...cantieri].sort((a,b)=>a.periodoInizio.localeCompare(b.periodoInizio)).slice(0,8);
+  document.getElementById('ds-cant').innerHTML = elenco.length ? elenco.map(c=>`
+    <div class="ri">
+      <div>
+        <div class="rlt">${c.nome}</div>
+        <div class="rls">${c.committente||'—'} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}</div>
+      </div>
+      <span class="bx ${c.periodoInizio<=oggi&&(c.periodoFine||c.periodoInizio)>=oggi?'bt':c.periodoInizio>oggi?'bz':'br'}">${c.periodoInizio<=oggi&&(c.periodoFine||c.periodoInizio)>=oggi?'in corso':c.periodoInizio>oggi?'in arrivo':'concluso'}</span>
+    </div>
+  `).join('') : `<div class="ri"><div class="rls">Nessun cantiere ancora creato — vai su "Cantieri" per aggiungerne uno.</div></div>`;
+
+  // prossimi interventi su tutti i cantieri, ordinati per data
+  const interventi = [];
+  cantieri.forEach(c=>(c.interventi||[]).forEach(iv=>interventi.push({...iv, cantiereNome:c.nome})));
+  interventi.sort((a,b)=>a.data.localeCompare(b.data));
+  const prossimi = interventi.filter(iv=>iv.data>=oggi).slice(0,6);
+
+  document.getElementById('ds-interventi').innerHTML = prossimi.length ? prossimi.map(iv=>`
+    <div class="ri">
+      <div>
+        <div class="rlt">${iv.descrizione}</div>
+        <div class="rls">${iv.cantiereNome} · squadra: ${iv.squadra||'—'}</div>
+      </div>
+      <span class="mn" style="color:var(--teal);font-size:12px">${fdate(iv.data)}</span>
+    </div>
+  `).join('') : `<div class="ri"><div class="rls">Nessun intervento programmato.</div></div>`;
+}
+
+// ============================================================
+// SYNC CLOUD — Supabase (stessa tabella/riga del Gestionale)
+// Merge selettivo: legge tutta la riga remota, aggiorna SOLO
+// DB.cantieri sul lato planning, e scrive nella stessa riga
+// senza toccare i campi di competenza del gestionale.
+// ============================================================
+const SUPABASE_URL = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+const SUPABASE_TABLE = 'gestionale_dati';
+
+async function cloudVerificaConnessione(){
+  const dot = document.getElementById('cloud-status-dot');
+  const txt = document.getElementById('cloud-status-text');
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=aggiornato_il`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if(res.ok){ dot.style.background = '#4be87a'; txt.textContent = 'Connesso ✓'; return true; }
+    dot.style.background = '#e84b4b'; txt.textContent = 'Errore connessione'; return false;
+  }catch(err){
+    dot.style.background = '#e84b4b'; txt.textContent = 'Offline'; return false;
+  }
+}
+
+// Salva: legge prima il remoto, fa merge SOLO su cantieri, poi fa PATCH
+async function cloudSalvaOra(){
+  const log = document.getElementById('cloud-log');
+  if(log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Sincronizzazione...</div>'; }
+  try{
+    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await getRes.json();
+    const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
+
+    // merge: tengo tutto il remoto (presenze, saldi, documenti, ecc.)
+    // e sovrascrivo solo il campo cantieri con la versione locale del planning
+    const merged = { ...remoto, cantieri: DB.cantieri };
+
+    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ dati: merged, aggiornato_il: new Date().toISOString() })
+    });
+
+    if(patchRes.ok){
+      if(log) log.innerHTML = '<div style="color:var(--green)">✓ Salvato sul cloud (cantieri sincronizzati col gestionale)</div>';
+      toast('Sincronizzato ✓');
+      document.getElementById('cloud-status-dot').style.background = '#4be87a';
+    } else {
+      if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore: ${patchRes.status}</div>`;
+    }
+  }catch(err){
+    if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore di rete: ${err.message}</div>`;
+  }
+}
+
+// Carica: prende SOLO il campo cantieri dal remoto, lascia intatto il resto del DB locale
+async function cloudCaricaOra(){
+  const log = document.getElementById('cloud-log');
+  if(log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Caricamento...</div>'; }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await res.json();
+    if(!rows.length || !rows[0].dati){
+      if(log) log.innerHTML = '<div style="color:var(--text2)">ℹ Nessun dato sul cloud ancora.</div>';
+      return;
+    }
+    const remoto = rows[0].dati;
+    DB.cantieri = remoto.cantieri || [];
+    save();
+    renderDash();
+    if(log) log.innerHTML = '<div style="color:var(--green)">✓ Cantieri caricati dal cloud</div>';
+    toast('Dati caricati ✓');
+  }catch(err){
+    if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore: ${err.message}</div>`;
+  }
+}
+
+// ============================================================
+// CALENDARIO & GANTT — selettore periodo + due viste
+// ============================================================
+let _vistaCalendario = 'gantt';
+const COLORI_CANTIERE = ['#00b4a6','#e8b84b','#4be87a','#e84b4b','#7b61ff','#e87a4b','#4b9be8','#b44be8'];
+
+function coloreCantiere(idx){ return COLORI_CANTIERE[idx % COLORI_CANTIERE.length]; }
+
+function initCalendario(){
+  const ora = new Date();
+  const fine = new Date(ora); fine.setMonth(fine.getMonth()+3);
+  if(!document.getElementById('cal-from').value)
+    document.getElementById('cal-from').value = ora.toISOString().slice(0,10);
+  if(!document.getElementById('cal-to').value)
+    document.getElementById('cal-to').value = fine.toISOString().slice(0,10);
+  aggiornaBarraVisuale();
+  renderVista();
+}
+
+function setPreset(p){
+  const da = new Date(); da.setHours(0,0,0,0);
+  const al = new Date(da);
+  if(p==='1m') al.setMonth(al.getMonth()+1);
+  else if(p==='3m') al.setMonth(al.getMonth()+3);
+  else if(p==='6m') al.setMonth(al.getMonth()+6);
+  else if(p==='1y') al.setFullYear(al.getFullYear()+1);
+  document.getElementById('cal-from').value = da.toISOString().slice(0,10);
+  document.getElementById('cal-to').value = al.toISOString().slice(0,10);
+  syncPeriodo('from');
+  // propaga alle date export nella pagina Cantieri
+  const ef = document.getElementById('exp-from');
+  const et = document.getElementById('exp-to');
+  if(ef) ef.value = da.toISOString().slice(0,10);
+  if(et) et.value = al.toISOString().slice(0,10);
+}
+
+function syncPeriodo(changed){
+  const da = document.getElementById('cal-from').value;
+  const al = document.getElementById('cal-to').value;
+  if(da && al && da > al){
+    if(changed==='from') document.getElementById('cal-to').value = da;
+    else document.getElementById('cal-from').value = al;
+  }
+  // propaga all'export cantieri
+  const ef = document.getElementById('exp-from');
+  const et = document.getElementById('exp-to');
+  if(ef && da) ef.value = da;
+  if(et && al) et.value = al;
+  aggiornaBarraVisuale();
+  renderVista();
+}
+
+function aggiornaBarraVisuale(){
+  const da = document.getElementById('cal-from').value;
+  const al = document.getElementById('cal-to').value;
+  if(!da||!al) return;
+  const oggi = today();
+  const start = new Date(da), end = new Date(al), now = new Date(oggi);
+  const totGiorni = (end-start)/(1000*60*60*24);
+  const passati = Math.max(0,Math.min(totGiorni,(now-start)/(1000*60*60*24)));
+  const pct = totGiorni > 0 ? (passati/totGiorni*100).toFixed(1) : 0;
+  document.getElementById('cal-timeline-fill').style.width = pct+'%';
+  document.getElementById('cal-bar-label-l').textContent = fdate(da);
+  document.getElementById('cal-bar-label-r').textContent = fdate(al);
+}
+
+function setVistaCalendario(v){
+  _vistaCalendario = v;
+  document.getElementById('vista-gantt').style.display = v==='gantt'?'block':'none';
+  document.getElementById('vista-mensile').style.display = v==='mensile'?'block':'none';
+  document.getElementById('btn-gantt').className = v==='gantt'?'bp':'bs';
+  document.getElementById('btn-mensile').className = v==='mensile'?'bp':'bs';
+  document.getElementById('btn-gantt').style.cssText = 'font-size:12px;padding:6px 16px';
+  document.getElementById('btn-mensile').style.cssText = 'font-size:12px;padding:6px 16px';
+  renderVista();
+}
+
+function renderVista(){
+  if(_vistaCalendario==='gantt') renderGantt();
+  else renderMensile();
+}
+
+// ---- GANTT ----
+function renderGantt(){
+  const da = document.getElementById('cal-from')?.value;
+  const al = document.getElementById('cal-to')?.value;
+  const wrap = document.getElementById('gantt-wrap');
+  if(!wrap||!da||!al) return;
+
+  const cantieri = (DB.cantieri||[]).filter(c=>{
+    const fine = c.periodoFine||c.periodoInizio;
+    return c.periodoInizio<=al && fine>=da;
+  }).sort((a,b)=>a.periodoInizio.localeCompare(b.periodoInizio));
+
+  if(!cantieri.length){
+    wrap.innerHTML = `<div class="rl"><div class="ri"><div class="rls">Nessun cantiere nel periodo selezionato.</div></div></div>`;
+    return;
+  }
+
+  const startTs = new Date(da).getTime();
+  const endTs = new Date(al).getTime();
+  const totMs = endTs - startTs;
+  const oggiTs = new Date(today()).getTime();
+
+  // genera intestazione giorni (max 90 giorni mostrati come header settimanale)
+  const totGiorni = Math.round(totMs/(1000*60*60*24));
+  const mostraSettimane = totGiorni > 60;
+
+  let headerHtml = '';
+  if(mostraSettimane){
+    // intestazione settimanale
+    const weeks = [];
+    const cur = new Date(da);
+    while(cur.getTime() <= endTs){
+      const wStart = new Date(cur);
+      const wEnd = new Date(cur); wEnd.setDate(wEnd.getDate()+6);
+      const pct = Math.min(100, ((Math.min(wEnd.getTime(),endTs)-Math.max(wStart.getTime(),startTs))/(totMs))*100);
+      weeks.push(`<div style="min-width:0;flex:${pct};text-align:center;font-size:9px;color:var(--text2);border-right:1px solid var(--brd);padding:2px 0;white-space:nowrap;overflow:hidden">${wStart.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>`);
+      cur.setDate(cur.getDate()+7);
+    }
+    headerHtml = `<div style="display:flex;margin-left:180px;background:rgba(255,255,255,.02);border-radius:4px 4px 0 0;border:1px solid var(--brd);border-bottom:none">${weeks.join('')}</div>`;
+  } else {
+    // intestazione giornaliera
+    const giorni = [];
+    const cur = new Date(da);
+    while(cur.getTime() <= endTs){
+      const isOggi = cur.toISOString().slice(0,10)===today();
+      giorni.push(`<div style="flex:1;text-align:center;font-size:8px;color:${isOggi?'var(--teal)':'var(--text2)'};border-right:1px solid var(--brd);padding:2px 0;font-weight:${isOggi?'700':'400'}">${cur.getDate()}</div>`);
+      cur.setDate(cur.getDate()+1);
+    }
+    headerHtml = `<div style="display:flex;margin-left:180px;background:rgba(255,255,255,.02);border-radius:4px 4px 0 0;border:1px solid var(--brd);border-bottom:none">${giorni.join('')}</div>`;
+  }
+
+  const righe = cantieri.map((c,idx)=>{
+    const cStart = Math.max(new Date(c.periodoInizio).getTime(), startTs);
+    const cEnd = Math.min(new Date(c.periodoFine||c.periodoInizio).getTime()+86400000, endTs);
+    const left = ((cStart-startTs)/totMs*100).toFixed(2);
+    const width = Math.max(0.5,((cEnd-cStart)/totMs*100)).toFixed(2);
+    const colore = coloreCantiere(idx);
+    const b = statoBadge(c);
+
+    // linea oggi
+    const oggiLeft = oggiTs>=startTs && oggiTs<=endTs ? ((oggiTs-startTs)/totMs*100).toFixed(2) : null;
+
+    // interventi
+    const interventi = (c.interventi||[]).filter(iv=>iv.data>=da&&iv.data<=al);
+    const intervHtml = interventi.map(iv=>{
+      const ivTs = new Date(iv.data).getTime();
+      const ivLeft = ((ivTs-startTs)/totMs*100).toFixed(2);
+      return `<div title="${iv.descrizione||''} — ${iv.squadra||''}" style="position:absolute;left:${ivLeft}%;top:0;width:2px;height:100%;background:rgba(255,255,255,.7);border-radius:1px"></div>`;
+    }).join('');
+
+    const rigaId = 'gantt-row-'+c.id;
+    const interv = (c.interventi||[]).filter(iv=>iv.data>=da&&iv.data<=al);
+
+    return `
+    <div style="display:flex;align-items:stretch;border-bottom:1px solid var(--brd);min-height:36px">
+      <div onclick="toggleGanttRow('${c.id}')" style="width:180px;min-width:180px;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--card)">
+        <span style="font-size:10px;color:var(--text2)">${interv.length?'▶':' '}</span>
+        <div>
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${c.nome}</div>
+          <div style="font-size:9px;color:var(--text2)">${c.committente||''}</div>
+        </div>
+      </div>
+      <div style="flex:1;position:relative;background:var(--navy);min-height:36px">
+        ${oggiLeft?`<div style="position:absolute;left:${oggiLeft}%;top:0;width:1px;height:100%;background:rgba(0,180,166,.4);z-index:1"></div>`:''}
+        <div title="${c.nome} · ${fdate(c.periodoInizio)}→${fdate(c.periodoFine||c.periodoInizio)}" 
+             onclick="apriModificaCantiere('${c.id}')"
+             style="position:absolute;left:${left}%;width:${width}%;top:6px;height:22px;background:${colore};border-radius:4px;cursor:pointer;display:flex;align-items:center;padding:0 6px;overflow:hidden;z-index:2">
+          <span style="font-size:9px;color:rgba(0,0,0,.8);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.nome}</span>
+          ${intervHtml}
+        </div>
+      </div>
+    </div>
+    <div id="${rigaId}" style="display:none;border-bottom:1px solid var(--brd)">
+      ${interv.length ? interv.sort((a,b)=>a.data.localeCompare(b.data)).map(iv=>{
+        const ivTs = new Date(iv.data).getTime();
+        const ivLeft = Math.max(0,((ivTs-startTs)/totMs*100)).toFixed(2);
+        return `<div style="display:flex;align-items:center;background:rgba(0,180,166,.04)">
+          <div style="width:180px;min-width:180px;padding:4px 10px 4px 28px;font-size:10px;color:var(--text2)">↳ ${fdate(iv.data)}</div>
+          <div style="flex:1;position:relative;height:28px">
+            <div style="position:absolute;left:${ivLeft}%;top:6px;width:10px;height:10px;background:${colore};border-radius:50%;border:2px solid var(--navy);z-index:2"></div>
+            <div style="position:absolute;left:calc(${ivLeft}% + 14px);top:8px;font-size:9px;color:var(--text2);white-space:nowrap">${iv.descrizione||''}${iv.squadra?' · '+iv.squadra:''}</div>
+          </div>
+        </div>`;
+      }).join('') : `<div style="padding:6px 10px 6px 28px;font-size:10px;color:var(--text2)">Nessun intervento nel periodo</div>`}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden">
+      ${headerHtml}
+      <div style="border:1px solid var(--brd);border-top:none;border-radius:0 0 var(--r) var(--r)">
+        ${righe}
+      </div>
+    </div>
+    <p style="font-size:10px;color:var(--text2);margin-top:8px">Clicca su ▶ per espandere gli interventi · Clicca sulla barra per aprire il cantiere</p>`;
+}
+
+function toggleGanttRow(id){
+  const el = document.getElementById('gantt-row-'+id);
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+}
+
+// ---- CALENDARIO MENSILE ----
+function renderMensile(){
+  const da = document.getElementById('cal-from')?.value;
+  const al = document.getElementById('cal-to')?.value;
+  const wrap = document.getElementById('mensile-wrap');
+  if(!wrap||!da||!al) return;
+
+  const cantieri = (DB.cantieri||[]).filter(c=>{
+    const fine = c.periodoFine||c.periodoInizio;
+    return c.periodoInizio<=al && fine>=da;
+  });
+
+  const mesi = [];
+  const cur = new Date(da.slice(0,7)+'-01');
+  const endMese = new Date(al.slice(0,7)+'-01');
+  while(cur<=endMese){
+    mesi.push(new Date(cur));
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  wrap.innerHTML = mesi.map(mese=>{
+    const anno = mese.getFullYear();
+    const mNum = mese.getMonth();
+    const giorniNelMese = new Date(anno,mNum+1,0).getDate();
+    const primoGiorno = new Date(anno,mNum,1).getDay()||7; // 1=lun
+
+    const nomesMese = mese.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+
+    // celle vuote iniziali
+    let celle = '';
+    for(let i=1;i<primoGiorno;i++) celle+=`<div></div>`;
+
+    for(let g=1;g<=giorniNelMese;g++){
+      const dataStr = `${anno}-${String(mNum+1).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
+      const isOggi = dataStr===today();
+      const cantInGiorno = cantieri.filter((c,idx)=>{
+        const fine = c.periodoFine||c.periodoInizio;
+        return dataStr>=c.periodoInizio && dataStr<=fine;
+      });
+      const intervInGiorno = cantieri.flatMap(c=>(c.interventi||[]).filter(iv=>iv.data===dataStr).map(iv=>({...iv,cantNome:c.nome})));
+
+      celle+=`<div style="min-height:52px;padding:3px;border:1px solid var(--brd);border-radius:4px;background:${isOggi?'var(--td)':'var(--card)'}">
+        <div style="font-size:10px;font-weight:${isOggi?'700':'400'};color:${isOggi?'var(--teal)':'var(--text2)'};margin-bottom:2px">${g}</div>
+        ${cantInGiorno.map((c,idx)=>`<div onclick="apriModificaCantiere('${c.id}')" title="${c.nome}" style="background:${coloreCantiere(cantieri.indexOf(c))};border-radius:2px;padding:1px 4px;font-size:8px;color:rgba(0,0,0,.8);font-weight:700;margin-bottom:1px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.nome}</div>`).join('')}
+        ${intervInGiorno.map(iv=>`<div title="${iv.cantNome}: ${iv.descrizione||''}" style="background:rgba(255,255,255,.15);border-radius:2px;padding:1px 4px;font-size:8px;color:var(--text);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🔨 ${iv.descrizione||iv.cantNome}</div>`).join('')}
+      </div>`;
+    }
+
+    return `<div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;text-transform:capitalize;margin-bottom:8px;color:var(--teal)">${nomesMese}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+        ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(g=>`<div style="text-align:center;font-size:9px;color:var(--text2);font-weight:700;padding:2px 0">${g}</div>`).join('')}
+        ${celle}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// export da calendario (usa le stesse date del selettore)
+function esportaExcelDaCal(){
+  const da = document.getElementById('cal-from')?.value;
+  const al = document.getElementById('cal-to')?.value;
+  if(da){ const ef=document.getElementById('exp-from'); if(ef) ef.value=da; }
+  if(al){ const et=document.getElementById('exp-to'); if(et) et.value=al; }
+  esportaExcel();
+}
+function esportaPDFDaCal(){
+  const da = document.getElementById('cal-from')?.value;
+  const al = document.getElementById('cal-to')?.value;
+  if(da){ const ef=document.getElementById('exp-from'); if(ef) ef.value=da; }
+  if(al){ const et=document.getElementById('exp-to'); if(et) et.value=al; }
+  esportaPDF();
+}
+
+
+let _cantEditId = null; // id cantiere in modifica (null = nuovo)
+
+function statoBadge(c){
+  const oggi = today();
+  const fine = c.periodoFine || c.periodoInizio;
+  if(c.stato === 'concluso' || fine < oggi) return {cls:'br', txt:'concluso'};
+  if(c.periodoInizio <= oggi && fine >= oggi) return {cls:'bt', txt:'in corso'};
+  if(c.periodoInizio > oggi) return {cls:'bz', txt:'in arrivo'};
+  return {cls:'bo', txt:'da confermare'};
+}
+
+function renderCantieri(){
+  const search = (document.getElementById('cant-search')?.value||'').toLowerCase();
+  const filtroStato = document.getElementById('cant-filter')?.value||'';
+  const list = document.getElementById('cant-list');
+  if(!list) return;
+
+  let cantieri = [...(DB.cantieri||[])];
+  if(search) cantieri = cantieri.filter(c=>(c.nome+c.committente+c.luogo).toLowerCase().includes(search));
+  if(filtroStato) cantieri = cantieri.filter(c=>statoBadge(c).txt===filtroStato);
+  cantieri.sort((a,b)=>a.periodoInizio.localeCompare(b.periodoInizio));
+
+  if(!cantieri.length){
+    list.innerHTML = `<div class="rl"><div class="ri"><div class="rls">Nessun cantiere trovato. Importane uno da Calendar o creane uno nuovo.</div></div></div>`;
+    return;
+  }
+
+  list.innerHTML = cantieri.map(c=>{
+    const b = statoBadge(c);
+    const margine = (parseFloat(c.ricavo)||0)-(parseFloat(c.costo)||0);
+    const nInterventi = (c.interventi||[]).length;
+    const nAttr = (c.attrezzature||[]).length;
+    const nServ = (c.serviziEsterni||[]).length;
+    return `
+    <div class="tc" style="margin-bottom:12px">
+      <div class="th" style="cursor:pointer" onclick="apriModificaCantiere('${c.id}')">
+        <div>
+          <div style="font-size:14px;font-weight:700">${c.nome}</div>
+          <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px">
+            ${c.committente||'—'} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}
+          </div>
+        </div>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <span class="bx ${b.cls}">${b.txt}</span>
+          ${nInterventi?`<span class="bx bz">🔨 ${nInterventi}</span>`:''}
+          ${nAttr?`<span class="bx bz">🔧 ${nAttr}</span>`:''}
+          ${nServ?`<span class="bx bz">🏢 ${nServ}</span>`:''}
+          ${c.ricavo?`<span class="mn" style="font-size:11px;color:${margine>=0?'var(--green)':'var(--red)'}">€${margine>=0?'+':''}${margine.toLocaleString('it-IT')}</span>`:''}
+          <span style="font-size:18px;color:var(--text2)">›</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // imposta date default export se vuote
+  const ef = document.getElementById('exp-from');
+  const et = document.getElementById('exp-to');
+  if(ef && !ef.value){ ef.value = today(); }
+  if(et && !et.value){
+    const d = new Date(); d.setMonth(d.getMonth()+3);
+    et.value = d.toISOString().slice(0,10);
+  }
+}
+
+function apriNuovoCantiere(){
+  _cantEditId = null;
+  document.getElementById('modal-cant-title').textContent = 'Nuovo cantiere';
+  document.getElementById('mc-btn-elimina').style.display = 'none';
+  resetFormCantiere();
+  openModal('modal-cantiere');
+}
+
+function apriModificaCantiere(id){
+  const c = (DB.cantieri||[]).find(x=>x.id===id);
+  if(!c) return;
+  _cantEditId = id;
+  document.getElementById('modal-cant-title').textContent = 'Modifica cantiere';
+  document.getElementById('mc-btn-elimina').style.display = '';
+  // compila form
+  document.getElementById('mc-nome').value = c.nome||'';
+  document.getElementById('mc-committente').value = c.committente||'';
+  document.getElementById('mc-luogo').value = c.luogo||'';
+  document.getElementById('mc-stato').value = c.stato||'da confermare';
+  document.getElementById('mc-inizio').value = c.periodoInizio||'';
+  document.getElementById('mc-fine').value = c.periodoFine||'';
+  document.getElementById('mc-ricavo').value = c.ricavo||'';
+  document.getElementById('mc-costo').value = c.costo||'';
+  document.getElementById('mc-note').value = c.note||'';
+  // notifica
+  const notifica = !!(c.notifica && c.notifica.attiva);
+  document.getElementById('mc-notifica').checked = notifica;
+  if(c.notifica?.giorni) document.getElementById('mc-notifica-giorni').value = c.notifica.giorni;
+  toggleNotificaGiorni();
+  // liste dinamiche
+  renderListaPersonale(c.personaleAssegnato||[]);
+  renderListaAttr(c.attrezzature||[]);
+  renderListaServ(c.serviziEsterni||[]);
+  renderListaMat(c.materiali||[]);
+  renderListaMezzi(c.mezzi||[]);
+  renderListaInterv(c.interventi||[]);
+  openModal('modal-cantiere');
+}
+
+function resetFormCantiere(){
+  ['mc-nome','mc-committente','mc-luogo','mc-ricavo','mc-costo','mc-note',
+   'mc-personale-input','mc-attr-tipo','mc-attr-qty','mc-serv-fornitore',
+   'mc-serv-desc','mc-serv-prezzo','mc-mat-nome','mc-mat-qty',
+   'mc-mezzo-input','mc-interv-data','mc-interv-desc','mc-interv-squadra'
+  ].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('mc-stato').value = 'da confermare';
+  document.getElementById('mc-inizio').value = today();
+  document.getElementById('mc-fine').value = '';
+  document.getElementById('mc-notifica').checked = false;
+  toggleNotificaGiorni();
+  renderListaPersonale([]); renderListaAttr([]); renderListaServ([]);
+  renderListaMat([]); renderListaMezzi([]); renderListaInterv([]);
+}
+
+function toggleNotificaGiorni(){
+  const w = document.getElementById('mc-notifica-giorni-wrap');
+  if(w) w.style.display = document.getElementById('mc-notifica').checked ? 'flex' : 'none';
+}
+
+// Helper tag removibili
+function tagItem(testo, onRemove){
+  return `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--td);color:var(--teal);border-radius:6px;padding:3px 9px;font-size:12px;font-weight:600">
+    ${testo}
+    <span onclick="${onRemove}" style="cursor:pointer;color:var(--text2);font-size:14px;line-height:1">×</span>
+  </span>`;
+}
+
+function rigaItem(cols, onRemove){
+  return `<div style="display:flex;align-items:center;gap:8px;background:var(--td2);border-radius:6px;padding:6px 10px;margin-bottom:6px;font-size:12px;flex-wrap:wrap">
+    ${cols.map(c=>`<span style="flex:1;min-width:80px">${c}</span>`).join('')}
+    <span onclick="${onRemove}" style="cursor:pointer;color:var(--red);font-size:16px;line-height:1;margin-left:auto">×</span>
+  </div>`;
+}
+
+// Stato temporaneo delle liste in modifica (arricchito al salvataggio)
+let _tmpPersonale=[], _tmpAttr=[], _tmpServ=[], _tmpMat=[], _tmpMezzi=[], _tmpInterv=[];
+
+function renderListaPersonale(arr){ _tmpPersonale=[...arr]; document.getElementById('mc-personale-list').innerHTML = arr.map((n,i)=>tagItem(n,`rimuoviPersonale(${i})`)).join(''); }
+function rimuoviPersonale(i){ _tmpPersonale.splice(i,1); renderListaPersonale(_tmpPersonale); }
+function aggiungiPersonale(){ const v=document.getElementById('mc-personale-input').value.trim(); if(!v)return; _tmpPersonale.push(v); renderListaPersonale(_tmpPersonale); document.getElementById('mc-personale-input').value=''; }
+
+function renderListaAttr(arr){ _tmpAttr=[...arr]; document.getElementById('mc-attr-list').innerHTML = arr.map((a,i)=>rigaItem([`<b>${a.tipo||a}</b>`,`Qtà: ${a.quantita||'—'}`],`rimuoviAttr(${i})`)).join(''); }
+function rimuoviAttr(i){ _tmpAttr.splice(i,1); renderListaAttr(_tmpAttr); }
+function aggiungiAttr(){ const t=document.getElementById('mc-attr-tipo').value.trim(), q=document.getElementById('mc-attr-qty').value.trim(); if(!t)return; _tmpAttr.push({tipo:t,quantita:q}); renderListaAttr(_tmpAttr); document.getElementById('mc-attr-tipo').value=''; document.getElementById('mc-attr-qty').value=''; }
+
+function renderListaServ(arr){ _tmpServ=[...arr]; document.getElementById('mc-serv-list').innerHTML = arr.map((s,i)=>rigaItem([`<b>${s.fornitore||'—'}</b>`,s.descrizione||'',s.prezzo?`€${parseFloat(s.prezzo).toLocaleString('it-IT')}`:''],`rimuoviServ(${i})`)).join(''); }
+function rimuoviServ(i){ _tmpServ.splice(i,1); renderListaServ(_tmpServ); }
+function aggiungiServ(){ const f=document.getElementById('mc-serv-fornitore').value.trim(), d=document.getElementById('mc-serv-desc').value.trim(), p=document.getElementById('mc-serv-prezzo').value.trim(); if(!f&&!d)return; _tmpServ.push({fornitore:f,descrizione:d,prezzo:p}); renderListaServ(_tmpServ); document.getElementById('mc-serv-fornitore').value=''; document.getElementById('mc-serv-desc').value=''; document.getElementById('mc-serv-prezzo').value=''; }
+
+function renderListaMat(arr){ _tmpMat=[...arr]; document.getElementById('mc-mat-list').innerHTML = arr.map((m,i)=>rigaItem([`<b>${m.nome||m}</b>`,m.quantita||''],`rimuoviMat(${i})`)).join(''); }
+function rimuoviMat(i){ _tmpMat.splice(i,1); renderListaMat(_tmpMat); }
+function aggiungiMat(){ const n=document.getElementById('mc-mat-nome').value.trim(), q=document.getElementById('mc-mat-qty').value.trim(); if(!n)return; _tmpMat.push({nome:n,quantita:q}); renderListaMat(_tmpMat); document.getElementById('mc-mat-nome').value=''; document.getElementById('mc-mat-qty').value=''; }
+
+function renderListaMezzi(arr){ _tmpMezzi=[...arr]; document.getElementById('mc-mezzi-list').innerHTML = arr.map((m,i)=>tagItem(m.nome||m,`rimuoviMezzo(${i})`)).join(''); }
+function rimuoviMezzo(i){ _tmpMezzi.splice(i,1); renderListaMezzi(_tmpMezzi); }
+function aggiungiMezzo(){ const v=document.getElementById('mc-mezzo-input').value.trim(); if(!v)return; _tmpMezzi.push({nome:v}); renderListaMezzi(_tmpMezzi); document.getElementById('mc-mezzo-input').value=''; }
+
+function renderListaInterv(arr){ _tmpInterv=[...arr]; document.getElementById('mc-interv-list').innerHTML = arr.map((iv,i)=>rigaItem([`<b>${fdate(iv.data)}</b>`,iv.descrizione||'',iv.squadra||''],`rimuoviInterv(${i})`)).join(''); }
+function rimuoviInterv(i){ _tmpInterv.splice(i,1); renderListaInterv(_tmpInterv); }
+function aggiungiInterv(){ const d=document.getElementById('mc-interv-data').value, desc=document.getElementById('mc-interv-desc').value.trim(), sq=document.getElementById('mc-interv-squadra').value.trim(); if(!d&&!desc)return; _tmpInterv.push({id:uid(),data:d||today(),descrizione:desc,squadra:sq}); renderListaInterv(_tmpInterv); document.getElementById('mc-interv-data').value=''; document.getElementById('mc-interv-desc').value=''; document.getElementById('mc-interv-squadra').value=''; }
+
+function salvaCantiere(){
+  const nome = document.getElementById('mc-nome').value.trim();
+  if(!nome){ toast('Inserisci almeno il nome del cantiere'); return; }
+  const notificaAttiva = document.getElementById('mc-notifica').checked;
+  const notificaGiorni = parseInt(document.getElementById('mc-notifica-giorni').value)||2;
+
+  const dati = {
+    nome,
+    committente: document.getElementById('mc-committente').value.trim(),
+    luogo: document.getElementById('mc-luogo').value.trim(),
+    stato: document.getElementById('mc-stato').value,
+    periodoInizio: document.getElementById('mc-inizio').value || today(),
+    periodoFine: document.getElementById('mc-fine').value || document.getElementById('mc-inizio').value || today(),
+    ricavo: parseFloat(document.getElementById('mc-ricavo').value)||0,
+    costo: parseFloat(document.getElementById('mc-costo').value)||0,
+    note: document.getElementById('mc-note').value.trim(),
+    notifica: { attiva: notificaAttiva, giorni: notificaGiorni },
+    personaleAssegnato: [..._tmpPersonale],
+    attrezzature: [..._tmpAttr],
+    serviziEsterni: [..._tmpServ],
+    materiali: [..._tmpMat],
+    mezzi: [..._tmpMezzi],
+    interventi: [..._tmpInterv]
+  };
+
+  if(!DB.cantieri) DB.cantieri = [];
+  if(_cantEditId){
+    const idx = DB.cantieri.findIndex(c=>c.id===_cantEditId);
+    if(idx>=0){
+      dati.id = _cantEditId;
+      dati.gcalEventId = DB.cantieri[idx].gcalEventId||null;
+      DB.cantieri[idx] = dati;
+    }
+  } else {
+    dati.id = uid();
+    dati.gcalEventId = null;
+    DB.cantieri.push(dati);
+  }
+  save();
+  closeModal('modal-cantiere');
+  renderCantieri();
+  renderDash();
+  scheduleNotifiche();
+  toast(`Cantiere "${nome}" salvato ✓`);
+}
+
+function eliminaCantiere(){
+  if(!_cantEditId) return;
+  const c = (DB.cantieri||[]).find(x=>x.id===_cantEditId);
+  if(!c) return;
+  if(!confirm(`Eliminare il cantiere "${c.nome}"? L'operazione non è reversibile.`)) return;
+  DB.cantieri = (DB.cantieri||[]).filter(x=>x.id!==_cantEditId);
+  save();
+  closeModal('modal-cantiere');
+  renderCantieri();
+  renderDash();
+  toast('Cantiere eliminato');
+}
+
+// ============================================================
+// NOTIFICHE BROWSER — controlla ogni ora se ci sono cantieri
+// in scadenza nei prossimi N giorni e mostra una notifica
+// ============================================================
+function scheduleNotifiche(){
+  if(!('Notification' in window)) return;
+  const cantieri = (DB.cantieri||[]).filter(c=>c.notifica?.attiva && c.periodoFine);
+  if(!cantieri.length) return;
+
+  const oggi = new Date(); oggi.setHours(0,0,0,0);
+  cantieri.forEach(c=>{
+    const fine = new Date(c.periodoFine); fine.setHours(0,0,0,0);
+    const diffGiorni = Math.round((fine-oggi)/(1000*60*60*24));
+    const soglia = parseInt(c.notifica.giorni)||2;
+    if(diffGiorni === soglia){
+      if(Notification.permission === 'granted'){
+        new Notification(`81|00 Planning — Cantiere in scadenza`, {
+          body: `"${c.nome}" termina tra ${soglia} giorn${soglia===1?'o':'i'} (${fdate(c.periodoFine)})`,
+          icon: 'https://giaquintogiuseppe-bit.github.io/ottantunocento-planning/favicon.ico'
+        });
+      } else if(Notification.permission !== 'denied'){
+        Notification.requestPermission().then(p=>{
+          if(p==='granted') scheduleNotifiche();
+        });
+      }
+    }
+  });
+}
+
+function richiediPermessoNotifiche(){
+  if(!('Notification' in window)){ toast('Notifiche non supportate in questo browser'); return; }
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){ toast('Notifiche abilitate ✓'); scheduleNotifiche(); }
+    else toast('Permesso notifiche negato');
+  });
+}
+
+// ============================================================
+// EXPORT PROGRAMMA LAVORI — Excel e PDF
+// ============================================================
+function getCantieriPerExport(){
+  const da = document.getElementById('exp-from')?.value;
+  const al = document.getElementById('exp-to')?.value;
+  if(!da || !al){ toast('Seleziona il periodo di export'); return null; }
+  return {
+    da, al,
+    cantieri: (DB.cantieri||[]).filter(c=>{
+      const inizio = c.periodoInizio;
+      const fine = c.periodoFine || c.periodoInizio;
+      return inizio <= al && fine >= da;
+    }).sort((a,b)=>a.periodoInizio.localeCompare(b.periodoInizio))
+  };
+}
+
+function esportaExcel(){
+  const res = getCantieriPerExport();
+  if(!res) return;
+  const {da, al, cantieri} = res;
+  if(!cantieri.length){ toast('Nessun cantiere nel periodo selezionato'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // Foglio 1: riepilogo cantieri
+  const righeRiepilogo = [
+    ['OTTANTUNOCENTO S.N.C. — PROGRAMMA LAVORI'],
+    [`Periodo: ${fdate(da)} → ${fdate(al)}`],
+    [''],
+    ['Cantiere','Committente','Luogo','Inizio','Fine','Stato','Ricavo €','Costo €','Margine €']
+  ];
+  cantieri.forEach(c=>{
+    const margine = (parseFloat(c.ricavo)||0)-(parseFloat(c.costo)||0);
+    righeRiepilogo.push([
+      c.nome, c.committente||'', c.luogo||'',
+      fdate(c.periodoInizio), fdate(c.periodoFine||c.periodoInizio),
+      statoBadge(c).txt,
+      parseFloat(c.ricavo)||0, parseFloat(c.costo)||0, margine
+    ]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(righeRiepilogo);
+  ws1['!cols'] = [{wch:30},{wch:20},{wch:25},{wch:12},{wch:12},{wch:14},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Riepilogo');
+
+  // Foglio 2: interventi
+  const righeInterv = [['Cantiere','Data','Descrizione intervento','Squadra']];
+  cantieri.forEach(c=>(c.interventi||[]).forEach(iv=>{
+    righeInterv.push([c.nome, fdate(iv.data), iv.descrizione||'', iv.squadra||'']);
+  }));
+  const ws2 = XLSX.utils.aoa_to_sheet(righeInterv);
+  ws2['!cols'] = [{wch:30},{wch:12},{wch:40},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Interventi');
+
+  // Foglio 3: attrezzature e forniture
+  const righeAttr = [['Cantiere','Tipo','Tipo voce','Fornitore/Desc','Quantità/Prezzo €']];
+  cantieri.forEach(c=>{
+    (c.attrezzature||[]).forEach(a=>righeAttr.push([c.nome, a.tipo||'', 'Attrezzatura propria','',a.quantita||'']));
+    (c.serviziEsterni||[]).forEach(s=>righeAttr.push([c.nome,'','Fornitura/Servizio esterno',`${s.fornitore||''} — ${s.descrizione||''}`,s.prezzo?`€${parseFloat(s.prezzo).toLocaleString('it-IT')}`:'']));
+    (c.materiali||[]).forEach(m=>righeAttr.push([c.nome, m.nome||'','Materiale di consumo','',m.quantita||'']));
+  });
+  const ws3 = XLSX.utils.aoa_to_sheet(righeAttr);
+  ws3['!cols'] = [{wch:30},{wch:25},{wch:22},{wch:40},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Attrezzature e Forniture');
+
+  XLSX.writeFile(wb, `programma-lavori-${da}-${al}.xlsx`);
+  toast('Excel scaricato ✓');
+}
+
+function esportaPDF(){
+  const res = getCantieriPerExport();
+  if(!res) return;
+  const {da, al, cantieri} = res;
+  if(!cantieri.length){ toast('Nessun cantiere nel periodo selezionato'); return; }
+
+  const scriptTag = '<scr'+'ipt>window.onload=()=>window.print()<'+'/scr'+'ipt>';
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Programma Lavori ${fdate(da)} - ${fdate(al)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:20px}
+    h1{font-size:16px;margin-bottom:2px}
+    h2{font-size:13px;margin:16px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px}
+    h3{font-size:11px;margin:10px 0 4px;color:#444}
+    .sub{font-size:10px;color:#666;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    th{background:#0a1628;color:#fff;padding:5px 7px;text-align:left;font-size:10px}
+    td{padding:4px 7px;border-bottom:1px solid #eee;vertical-align:top}
+    tr:nth-child(even){background:#f8f8f8}
+    .badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+    .in-corso{background:#d4f7e8;color:#1a7a45}
+    .in-arrivo{background:#e8eaf0;color:#444}
+    .concluso{background:#fde8e8;color:#a00}
+    .cant-box{border:1px solid #ddd;border-radius:6px;padding:12px;margin-bottom:14px;page-break-inside:avoid}
+    .cant-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .cant-nome{font-size:13px;font-weight:700}
+    .cant-meta{font-size:10px;color:#666;margin-top:2px}
+    @media print{body{padding:0} .cant-box{page-break-inside:avoid}}
+  </style></head><body>
+  <h1>OTTANTUNOCENTO S.N.C. — Programma Lavori</h1>
+  <div class="sub">Periodo: ${fdate(da)} → ${fdate(al)} · Generato il ${fdate(today())}</div>
+  ${cantieri.map(c=>{
+    const b = statoBadge(c);
+    const margine = (parseFloat(c.ricavo)||0)-(parseFloat(c.costo)||0);
+    return `<div class="cant-box">
+      <div class="cant-header">
+        <div>
+          <div class="cant-nome">${c.nome}</div>
+          <div class="cant-meta">${c.committente||''}${c.luogo?' · '+c.luogo:''}</div>
+          <div class="cant-meta">${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge ${b.txt.replace(' ','-')}">${b.txt.toUpperCase()}</span>
+          ${c.ricavo?`<div style="font-size:10px;margin-top:4px;color:${margine>=0?'green':'red'}">Margine: €${margine>=0?'+':''}${margine.toLocaleString('it-IT')}</div>`:''}
+        </div>
+      </div>
+      ${c.note?`<div style="font-size:10px;color:#555;margin-bottom:8px;font-style:italic">${c.note}</div>`:''}
+      ${(c.personaleAssegnato||[]).length?`<h3>Personale</h3><div style="font-size:10px">${c.personaleAssegnato.join(', ')}</div>`:''}
+      ${(c.mezzi||[]).length?`<h3>Mezzi</h3><div style="font-size:10px">${c.mezzi.map(m=>m.nome||m).join(', ')}</div>`:''}
+      ${(c.interventi||[]).length?`<h3>Interventi programmati</h3>
+        <table><tr><th>Data</th><th>Descrizione</th><th>Squadra</th></tr>
+        ${c.interventi.sort((a,b)=>a.data.localeCompare(b.data)).map(iv=>`<tr><td>${fdate(iv.data)}</td><td>${iv.descrizione||''}</td><td>${iv.squadra||''}</td></tr>`).join('')}
+        </table>`:''}
+      ${(c.attrezzature||[]).length?`<h3>Attrezzature proprie</h3>
+        <table><tr><th>Tipo</th><th>Quantità</th></tr>
+        ${c.attrezzature.map(a=>`<tr><td>${a.tipo||''}</td><td>${a.quantita||''}</td></tr>`).join('')}
+        </table>`:''}
+      ${(c.serviziEsterni||[]).length?`<h3>Forniture e servizi esterni</h3>
+        <table><tr><th>Fornitore</th><th>Descrizione</th><th>Prezzo</th></tr>
+        ${c.serviziEsterni.map(s=>`<tr><td>${s.fornitore||''}</td><td>${s.descrizione||''}</td><td>${s.prezzo?'€'+parseFloat(s.prezzo).toLocaleString('it-IT'):''}</td></tr>`).join('')}
+        </table>`:''}
+      ${(c.materiali||[]).length?`<h3>Materiali di consumo</h3>
+        <table><tr><th>Materiale</th><th>Quantità</th></tr>
+        ${c.materiali.map(m=>`<tr><td>${m.nome||''}</td><td>${m.quantita||''}</td></tr>`).join('')}
+        </table>`:''}
+    </div>`;
+  }).join('')}
+  ${scriptTag}
+  </body></html>`;
+
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
+
+// Sola lettura: usiamo lo scope calendar.readonly, mai scrittura.
+// Stesso calendario condiviso usato dal Gestionale.
+// ============================================================
+const GCAL_CLIENT_ID = '728971439296-02m5rg881uil90qtqct0cqsnc7bln8om.apps.googleusercontent.com';
+const GCAL_CALENDAR_ID = 'primary';
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+
+let gcalTokenClient = null;
+let gcalAccessToken = null;
+let gcalUltimiEventi = []; // cache ultima lista caricata
+let _evPreviewSrc = null;  // evento sorgente in fase di anteprima/modifica
+
+function gcalInitClient(){
+  if(gcalTokenClient || !window.google || !google.accounts) return;
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID,
+    scope: GCAL_SCOPE,
+    callback: (resp)=>{
+      if(resp && resp.access_token){
+        gcalAccessToken = resp.access_token;
+        sessionStorage.setItem('gcal_token', gcalAccessToken);
+        gcalRefreshUI();
+        toast('Connesso a Google Calendar ✓');
+      }
+    }
+  });
+}
+
+function gcalLogin(){
+  if(!window.google || !google.accounts){
+    toast('Libreria Google non ancora caricata, riprova');
+    return;
+  }
+  gcalInitClient();
+  gcalTokenClient.requestAccessToken();
+}
+
+function gcalLogout(){
+  gcalAccessToken = null;
+  sessionStorage.removeItem('gcal_token');
+  gcalUltimiEventi = [];
+  gcalRefreshUI();
+  toast('Disconnesso da Google Calendar');
+}
+
+function gcalRefreshUI(){
+  const dot = document.getElementById('gcal-dot');
+  const txt = document.getElementById('gcal-status-text');
+  const loginBox = document.getElementById('gcal-login-box');
+  const rangeBox = document.getElementById('gcal-range-box');
+  const eventiWrap = document.getElementById('gcal-eventi-wrap');
+  if(!dot) return; // pagina non ancora nel DOM
+
+  if(gcalAccessToken){
+    dot.classList.add('ok');
+    txt.textContent = 'Connesso a Google Calendar ✓';
+    loginBox.style.display = 'none';
+    rangeBox.style.display = 'block';
+    // imposta range default: oggi -> +60 giorni, se non già impostato
+    const f = document.getElementById('gcal-from');
+    const t = document.getElementById('gcal-to');
+    if(f && !f.value){
+      const now = new Date();
+      const plus60 = new Date(now.getTime() + 60*24*3600*1000);
+      f.value = now.toISOString().slice(0,10);
+      t.value = plus60.toISOString().slice(0,10);
+    }
+  } else {
+    dot.classList.remove('ok');
+    txt.textContent = 'Non collegato a Google Calendar';
+    loginBox.style.display = 'block';
+    rangeBox.style.display = 'none';
+    eventiWrap.style.display = 'none';
+  }
+}
+
+async function gcalCaricaEventi(){
+  if(!gcalAccessToken){ toast('Accedi prima con Google'); return; }
+  const from = document.getElementById('gcal-from').value;
+  const to = document.getElementById('gcal-to').value;
+  if(!from || !to){ toast('Seleziona un periodo valido'); return; }
+
+  const timeMin = new Date(from+'T00:00:00').toISOString();
+  const timeMax = new Date(to+'T23:59:59').toISOString();
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GCAL_CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=100`;
+
+  try{
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${gcalAccessToken}` } });
+    if(res.status === 401){
+      toast('Sessione Google scaduta, accedi di nuovo');
+      gcalLogout();
+      return;
+    }
+    if(!res.ok){
+      toast('Errore lettura Calendar: '+res.status);
+      return;
+    }
+    const data = await res.json();
+    gcalUltimiEventi = data.items || [];
+    renderGcalEventi();
+  }catch(err){
+    toast('Errore di rete: '+err.message);
+  }
+}
+
+function gcalEventGiaImportato(ev){
+  return (DB.cantieri||[]).some(c => c.gcalEventId === ev.id);
+}
+
+function gcalEventoDaEscludere(ev){
+  // escludi compleanni e eventi automatici Google
+  if(!ev.summary) return true;
+  const titolo = (ev.summary||'').toLowerCase();
+  if(titolo.includes('compleanno') || titolo.includes('birthday')) return true;
+  // Google marca i compleanni con questo tipo di ID
+  if(ev.id && ev.id.includes('_bday_')) return true;
+  // escludi eventi da calendari di terze parti (tipo contatti)
+  if(ev.organizer && ev.organizer.displayName && 
+     (ev.organizer.displayName.toLowerCase().includes('contact') || 
+      ev.organizer.displayName.toLowerCase().includes('birthday'))) return true;
+  return false;
+}
+
+function renderGcalEventi(){
+  const wrap = document.getElementById('gcal-eventi-wrap');
+  const list = document.getElementById('gcal-eventi-list');
+  wrap.style.display = 'block';
+
+  const eventiFiltrati = gcalUltimiEventi.filter(ev => !gcalEventoDaEscludere(ev));
+
+  if(!eventiFiltrati.length){
+    list.innerHTML = `<div class="ev-card"><div class="ev-info"><div class="ev-meta">Nessun evento trovato nel periodo selezionato (esclusi compleanni e ricorrenze automatiche).</div></div></div>`;
+    return;
+  }
+
+  list.innerHTML = eventiFiltrati.map((ev, idx)=>{
+    const idxOriginale = gcalUltimiEventi.indexOf(ev);
+    const inizio = (ev.start && (ev.start.date || ev.start.dateTime)) ? (ev.start.date || ev.start.dateTime.slice(0,10)) : '—';
+    const fine = (ev.end && (ev.end.date || ev.end.dateTime)) ? (ev.end.date || ev.end.dateTime.slice(0,10)) : inizio;
+    const importato = gcalEventGiaImportato(ev);
+    return `
+    <div class="ev-card ${importato?'imported':''}">
+      <div class="ev-info">
+        <div class="ev-title">${ev.summary || '(senza titolo)'}</div>
+        <div class="ev-meta">${fdate(inizio)} → ${fdate(fine)}${ev.location?' · '+ev.location:''}</div>
+      </div>
+      <div class="ev-actions">
+        ${importato
+          ? `<span class="bx bg">già importato</span>`
+          : `<button class="bs" onclick="apriAnteprimaEvento(${idxOriginale})">✏️ Anteprima e modifica</button>
+             <button class="bp" onclick="importaEventoDiretto(${idxOriginale})">⚡ Importa subito</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Costruisce i campi base di un cantiere a partire da un evento Calendar
+function gcalEventoToCantiereFields(ev){
+  const inizio = (ev.start && (ev.start.date || ev.start.dateTime)) ? (ev.start.date || ev.start.dateTime.slice(0,10)) : today();
+  const fine = (ev.end && (ev.end.date || ev.end.dateTime)) ? (ev.end.date || ev.end.dateTime.slice(0,10)) : inizio;
+  return {
+    nome: ev.summary || 'Cantiere senza nome',
+    luogo: ev.location || '',
+    periodoInizio: inizio,
+    periodoFine: fine,
+    note: ev.description || '',
+    gcalEventId: ev.id
+  };
+}
+
+function creaCantiereDaCampi(fields){
+  if(!DB.cantieri) DB.cantieri = [];
+  const c = {
+    id: uid(),
+    nome: fields.nome,
+    committente: fields.committente || '',
+    luogo: fields.luogo || '',
+    periodoInizio: fields.periodoInizio,
+    periodoFine: fields.periodoFine,
+    stato: 'da confermare',
+    note: fields.note || '',
+    ricavo: 0,
+    costo: 0,
+    personaleAssegnato: [],
+    attrezzature: [],
+    serviziEsterni: [],
+    materiali: [],
+    mezzi: [],
+    interventi: [],
+    gcalEventId: fields.gcalEventId || null
+  };
+  DB.cantieri.push(c);
+  save();
+  return c;
+}
+
+function importaEventoDiretto(idx){
+  const ev = gcalUltimiEventi[idx];
+  if(!ev) return;
+  const fields = gcalEventoToCantiereFields(ev);
+  creaCantiereDaCampi(fields);
+  toast(`Cantiere "${fields.nome}" creato ✓`);
+  renderGcalEventi();
+  renderDash();
+}
+
+function apriAnteprimaEvento(idx){
+  const ev = gcalUltimiEventi[idx];
+  if(!ev) return;
+  _evPreviewSrc = ev;
+  const fields = gcalEventoToCantiereFields(ev);
+  document.getElementById('evp-nome').value = fields.nome;
+  document.getElementById('evp-committente').value = '';
+  document.getElementById('evp-luogo').value = fields.luogo;
+  document.getElementById('evp-inizio').value = fields.periodoInizio;
+  document.getElementById('evp-fine').value = fields.periodoFine;
+  document.getElementById('evp-note').value = fields.note;
+  openModal('modal-ev-preview');
+}
+
+function confermaCreaCantiereDaEvento(){
+  const fields = {
+    nome: document.getElementById('evp-nome').value.trim() || 'Cantiere senza nome',
+    committente: document.getElementById('evp-committente').value.trim(),
+    luogo: document.getElementById('evp-luogo').value.trim(),
+    periodoInizio: document.getElementById('evp-inizio').value || today(),
+    periodoFine: document.getElementById('evp-fine').value || document.getElementById('evp-inizio').value || today(),
+    note: document.getElementById('evp-note').value.trim(),
+    gcalEventId: _evPreviewSrc ? _evPreviewSrc.id : null
+  };
+  creaCantiereDaCampi(fields);
+  toast(`Cantiere "${fields.nome}" creato ✓`);
+  closeModal('modal-ev-preview');
+  _evPreviewSrc = null;
+  renderGcalEventi();
+  renderDash();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+load();
+clock();
+setInterval(clock, 30000);
+setInterval(scheduleNotifiche, 3600000); // controlla notifiche ogni ora
+nav('dash');
+setTimeout(()=>{ cloudVerificaConnessione(); scheduleNotifiche(); }, 600);
+// ripristina sessione Google Calendar se presente (dura quanto il tab)
+gcalAccessToken = sessionStorage.getItem('gcal_token') || null;
+</script>
+</body>
+</html>
