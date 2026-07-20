@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>81|00 Layout Giornate</title>
+<style>
+:root{
+  --navy:#0a1628; --card:#152438; --brd:#24344d; --text:#e0e6ed; --text2:#8a94a6;
+  --teal:#00B4A6; --gold:#C9A227; --red:#e85454; --green:#3aa08c; --r:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--navy);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.mono{font-family:'DM Mono','SF Mono',Menlo,monospace}
+
+/* HEADER */
+header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap;background:var(--card)}
+header h1{font-size:16px;font-weight:800;letter-spacing:.5px}
+header h1 span{color:var(--teal)}
+.hgroup{display:flex;align-items:center;gap:8px}
+input[type=date]{background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;outline:none}
+button{cursor:pointer;border:1px solid var(--brd);background:var(--navy);color:var(--text);border-radius:8px;font-size:12px;padding:8px 13px;font-weight:600;transition:all .15s}
+button:hover{border-color:var(--teal)}
+button.primary{background:var(--teal);color:#04222b;border-color:var(--teal)}
+button.gold{background:var(--gold);color:#04222b;border-color:var(--gold)}
+button.attivo{background:var(--gold);color:#04222b;border-color:var(--gold)}
+#stato-pill{font-size:11px;padding:4px 10px;border-radius:12px;font-weight:700}
+#stato-pill.bozza{background:rgba(201,162,39,.15);color:var(--gold);border:1px solid var(--gold)}
+#stato-pill.pubblicato{background:rgba(58,160,140,.15);color:var(--green);border:1px solid var(--green)}
+
+/* LAYOUT */
+main{flex:1;display:flex;overflow:hidden}
+aside{width:270px;min-width:270px;border-right:1px solid var(--brd);background:var(--card);display:flex;flex-direction:column;overflow:hidden}
+aside .asec{padding:12px 14px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
+aside .asearch{margin:0 12px 8px}
+aside .asearch input{width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:12px;padding:8px 10px;outline:none}
+#lista-cantieri{flex:1;overflow-y:auto;padding:0 8px 10px}
+.cvoce{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.cvoce:hover{background:var(--navy)}
+.cvoce .cn{font-size:13px;font-weight:600;line-height:1.25}
+.cvoce .cc{font-size:10px;color:var(--text2)}
+.cvoce .plus{color:var(--teal);font-size:17px;font-weight:700}
+.cvoce.sulboard{opacity:.38;pointer-events:none}
+.apiedi{padding:10px 12px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:7px}
+#mezzi-pannello{font-size:11px;color:var(--text2);line-height:1.7;max-height:110px;overflow-y:auto;padding:0 2px}
+
+/* BOARD */
+#board-wrap{flex:1;position:relative;overflow:auto;background:
+  radial-gradient(circle at 1px 1px, #16263e 1px, transparent 0) 0 0/26px 26px, var(--navy)}
+#board{position:relative;width:2000px;height:1400px}
+#svg-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.tessera{position:absolute;width:172px;min-height:70px;z-index:2;background:var(--card);
+  border:1.5px solid var(--teal);border-radius:12px;padding:10px 12px;cursor:grab;
+  box-shadow:0 4px 14px rgba(0,0,0,.4);user-select:none}
+.tessera.dep{border-color:var(--gold);background:linear-gradient(135deg,#1c3050,#152438)}
+.tessera.partenza{outline:3px solid var(--gold);outline-offset:2px}
+.tessera.trascina{cursor:grabbing;z-index:6;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.tessera .tnome{font-size:13px;font-weight:800;line-height:1.2;display:flex;justify-content:space-between;gap:4px}
+.tessera .tx{color:var(--text2);cursor:pointer;font-size:14px;line-height:1}
+.tessera .tx:hover{color:var(--red)}
+.tessera .tlav{font-size:10px;color:var(--teal);margin-top:4px;line-height:1.35}
+.tessera .tsq{font-size:10px;color:var(--text2);margin-top:2px}
+.tessera .tmod{font-size:10px;color:var(--gold);margin-top:6px;cursor:pointer}
+.tessera .tmod:hover{text-decoration:underline}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+.mo.open{display:flex}
+.md{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);max-width:560px;width:100%;max-height:88vh;overflow-y:auto}
+.mh{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 10px}
+.mh h3{font-size:15px}
+.mc{background:none;border:none;color:var(--text2);font-size:19px;padding:2px 6px}
+.mb{padding:0 20px 18px}
+.chip{cursor:pointer;font-size:12px;padding:5px 11px;border-radius:14px;border:1px solid var(--brd);color:var(--text2);display:inline-block;margin:0 4px 6px 0}
+.chip.on{border-color:var(--teal);background:rgba(0,180,166,.15);color:var(--teal)}
+label.lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;display:block;margin:10px 0 5px;font-weight:700}
+.inp{width:100%;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-size:13px;padding:8px 10px;outline:none}
+.lavbox{background:var(--navy);border:1px solid var(--brd);border-radius:10px;padding:11px;margin-bottom:9px}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--teal);color:var(--text);padding:11px 20px;border-radius:10px;font-size:13px;z-index:99;transition:transform .25s;box-shadow:0 6px 22px rgba(0,0,0,.5)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+#hint{font-size:12px;color:var(--gold);padding:6px 18px;display:none;background:var(--card);border-bottom:1px solid var(--brd)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>81|00 <span>Layout Giornate</span></h1>
+  <div class="hgroup">
+    <input type="date" id="data" onchange="cambiaData()">
+    <span id="stato-pill" class="bozza">bozza</span>
+  </div>
+  <div style="flex:1"></div>
+  <div class="hgroup">
+    <button onclick="copiaGiornata()">📋 Copia giornata</button>
+    <button onclick="incollaGiornata()" id="btn-incolla" disabled style="opacity:.5">📥 Incolla</button>
+    <button id="btn-collega" onclick="toggleCollega()">🔗 Collega</button>
+    <button onclick="stampaVademecum()">🖨 Vademecum</button>
+    <button class="primary" onclick="apriPubblica()">📤 Pubblica nel planning</button>
+  </div>
+</header>
+<div id="hint"></div>
+
+<main>
+  <aside>
+    <div class="asec">🏗 Cantieri</div>
+    <div class="asearch"><input id="cerca" placeholder="🔍 Cerca cantiere..." oninput="renderListaCantieri()"></div>
+    <div id="lista-cantieri"></div>
+    <div class="apiedi">
+      <button onclick="aggiungiPunto()">📦 Aggiungi punto fisso (Deposito…)</button>
+      <div class="asec" style="padding:4px 0 2px">🚛 Parco mezzi</div>
+      <div id="mezzi-pannello">caricamento…</div>
+    </div>
+  </aside>
+
+  <div id="board-wrap">
+    <div id="board">
+      <svg id="svg-links"></svg>
+    </div>
+  </div>
+</main>
+
+<!-- Modal lavorazioni tessera -->
+<div class="mo" id="m-tessera">
+  <div class="md">
+    <div class="mh"><h3 id="mt-tit">Cantiere</h3><button class="mc" onclick="chiudi('m-tessera')">✕</button></div>
+    <div class="mb" id="mt-body"></div>
+  </div>
+</div>
+
+<!-- Modal mezzi percorso -->
+<div class="mo" id="m-mezzi">
+  <div class="md" style="max-width:500px">
+    <div class="mh"><h3>🚛 Mezzi del percorso</h3><button class="mc" onclick="annullaPercorso()">✕</button></div>
+    <div class="mb" id="mm-body"></div>
+  </div>
+</div>
+
+<!-- Modal pubblica -->
+<div class="mo" id="m-pubblica">
+  <div class="md" style="max-width:480px">
+    <div class="mh"><h3>📤 Pubblica nel planning</h3><button class="mc" onclick="chiudi('m-pubblica')">✕</button></div>
+    <div class="mb" id="mp-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══ 81|00 LAYOUT GIORNATE ═══
+   Lavagna di progettazione della giornata. Lavora in BOZZA (tabella layout_giornate),
+   alla conclusione PUBBLICA le lavorazioni nel planning (blob gestionale_dati → cantieri[].interventi[]).
+   Il planning resta la verità ufficiale, modificabile. */
+
+const SB='https://xqbhujcnjvwbwzpwjujf.supabase.co';
+const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+const H={'apikey':SBK,'Authorization':'Bearer '+SBK,'Content-Type':'application/json'};
+
+let CANTIERI=[], MEZZI=[], PERSONE=[];
+let RIS=[], ALLOC=[];   // risorse e allocazioni (dal sistema Risorse & Depositi del planning)
+let STORE={tessere:[],link:[]};       // bozza della giornata corrente
+let DATA='';                           // data corrente yyyy-mm-dd
+let STATO='bozza';
+let _dirty=false, _saveTimer=null;
+let _collega=false, _linkDa=null, _linkA=null, _linkEdit=null;
+let _drag=null;
+let _clipboard=null;
+
+/* ── helpers ── */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function apri(id){$(id).classList.add('open');}
+function chiudi(id){$(id).classList.remove('open');}
+function fdate(s){if(!s)return'—';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y;}
+function uid(p){return (p||'x')+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function squadraArr(l){if(!l||!l.squadra)return[];if(Array.isArray(l.squadra))return l.squadra;return String(l.squadra).split(',').map(s=>s.trim()).filter(Boolean);}
+
+/* ═══════════ ALLOC_LIB v1 — LIBRERIA CONDIVISA DISPONIBILITÀ & MOVIMENTI ═══════════
+   Funzioni PURE, identiche in Planning e Layout Giornate. Se modifichi qui,
+   replica lo stesso blocco nell'altra app e alza la versione. */
+const ALLOC_LIB_V='1';
+// impegnato di una risorsa a una data = somma qty delle allocazioni attive quel giorno
+function allocImpegnato(allocazioni, risorsaId, allaData){
+  return (allocazioni||[]).filter(a=>a.risorsa_id===risorsaId
+      && a.data_uscita<=allaData
+      && (!a.data_rientro || a.data_rientro>=allaData))
+    .reduce((s,a)=>s+parseFloat(a.qty||0),0);
+}
+function allocDisponibile(risorsa, allocazioni, allaData){
+  return parseFloat((risorsa&&risorsa.qty_totale)||0) - allocImpegnato(allocazioni, risorsa?risorsa.id:null, allaData);
+}
+// allocazioni attive di una risorsa su un cantiere a una data
+function allocSuCantiere(allocazioni, risorsaId, cantiereId, allaData){
+  return (allocazioni||[]).filter(a=>a.risorsa_id===risorsaId && a.cantiere_id===cantiereId
+      && a.data_uscita<=allaData && (!a.data_rientro||a.data_rientro>=allaData));
+}
+// TRASFERIMENTO cantiere A → cantiere B: restituisce le operazioni da eseguire
+// {patch:[{id,body}], insert:[payload]} — chi chiama le esegue via REST
+function movTrasferimento(allocazioni, risorsaId, daCantiereId, daCantiereNome, aCantiereId, aCantiereNome, qty, data, origine){
+  const fonti=allocSuCantiere(allocazioni, risorsaId, daCantiereId, data)
+    .sort((a,b)=>(a.data_uscita||'').localeCompare(b.data_uscita||''));
+  const disponSuA=fonti.reduce((s,a)=>s+parseFloat(a.qty||0),0);
+  if(qty>disponSuA) return {errore:`Sul cantiere di partenza risultano solo ${disponSuA} unità`};
+  const patch=[], insert=[]; let resto=qty;
+  for(const f of fonti){
+    if(resto<=0) break;
+    const fq=parseFloat(f.qty||0);
+    if(fq<=resto){ // chiudo tutta questa allocazione come trasferita
+      patch.push({id:f.id, body:{data_rientro:data, stato:'trasferita', aggiornato_il:new Date().toISOString()}});
+      resto-=fq;
+    } else {       // parziale: riduco la fonte, il resto viaggia
+      patch.push({id:f.id, body:{qty:fq-resto, aggiornato_il:new Date().toISOString()}});
+      resto=0;
+    }
+  }
+  insert.push({risorsa_id:risorsaId, deposito_id:null, cantiere_id:aCantiereId, cantiere_nome:aCantiereNome,
+    qty:qty, data_uscita:data, data_rientro:null, stato:'programmata',
+    da_tipo:'cantiere', da_id:daCantiereId, da_nome:daCantiereNome,
+    origine:origine||null, aggiornato_il:new Date().toISOString()});
+  return {patch, insert};
+}
+// RIENTRO al deposito: chiude l'allocazione
+function movRientro(allocId, data){
+  return {patch:[{id:allocId, body:{data_rientro:data, stato:'rientrata', aggiornato_il:new Date().toISOString()}}], insert:[]};
+}
+/* ═══════════ fine ALLOC_LIB ═══════════ */
+
+/* ── caricamento dati ── */
+async function caricaBase(){
+  try{
+    const r=await fetch(SB+'/rest/v1/gestionale_dati?id=eq.unico&select=dati',{headers:H,cache:'no-cache'});
+    const rows=await r.json();
+    let dati=rows[0]&&rows[0].dati; if(typeof dati==='string')dati=JSON.parse(dati);
+    CANTIERI=(dati&&dati.cantieri)||[];
+    MEZZI=(dati&&dati.mezziDB)||[];
+    PERSONE=((dati&&dati.personaleHR)||[]).map(p=>((p.nome||'')+' '+(p.cognome||'')).trim()).filter(Boolean);
+    renderListaCantieri(); renderMezziPannello();
+    // risorse & allocazioni per le disponibilità in bozza (sola lettura)
+    try{
+      const [rr,ra]=await Promise.all([
+        fetch(SB+'/rest/v1/risorse?select=*',{headers:H,cache:'no-cache'}),
+        fetch(SB+'/rest/v1/allocazioni?select=*',{headers:H,cache:'no-cache'})
+      ]);
+      RIS=await rr.json(); if(!Array.isArray(RIS))RIS=[];
+      ALLOC=await ra.json(); if(!Array.isArray(ALLOC))ALLOC=[];
+    }catch(e){ RIS=[]; ALLOC=[]; }
+  }catch(e){ toast('⚠ Errore caricamento dati: '+String(e.message||e).slice(0,50)); }
+}
+async function caricaGiornata(){
+  STORE={tessere:[],link:[]}; STATO='bozza';
+  try{
+    const r=await fetch(SB+'/rest/v1/layout_giornate?data=eq.'+DATA+'&select=*',{headers:H,cache:'no-cache'});
+    const rows=await r.json();
+    if(rows[0]){
+      STORE=rows[0].dati||{tessere:[],link:[]};
+      STORE.tessere=STORE.tessere||[]; STORE.link=STORE.link||[];
+      STATO=rows[0].stato||'bozza';
+    }
+  }catch(e){}
+  aggiornaStatoPill(); disegna(); renderListaCantieri();
+}
+function aggiornaStatoPill(){
+  const p=$('stato-pill'); p.textContent=STATO; p.className=STATO==='pubblicato'?'pubblicato':'bozza';
+}
+
+/* ── salvataggio bozza (upsert con debounce) ── */
+function salva(){
+  _dirty=true;
+  if(STATO==='pubblicato'){ STATO='bozza'; aggiornaStatoPill(); } // modifiche dopo pubblicazione → torna bozza
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(salvaOra,900);
+}
+async function salvaOra(){
+  if(!_dirty||!DATA) return;
+  try{
+    await fetch(SB+'/rest/v1/layout_giornate?on_conflict=data',{
+      method:'POST',
+      headers:{...H,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({data:DATA,dati:STORE,stato:STATO,aggiornato_il:new Date().toISOString()})
+    });
+    _dirty=false;
+  }catch(e){}
+}
+
+/* ── data ── */
+function cambiaData(){
+  const v=$('data').value; if(!v) return;
+  DATA=v; caricaGiornata();
+  $('btn-incolla').disabled=!_clipboard; $('btn-incolla').style.opacity=_clipboard?'1':'.5';
+}
+
+/* ── pannello cantieri ── */
+function renderListaCantieri(){
+  const f=($('cerca').value||'').trim().toLowerCase();
+  const sulBoard=new Set(STORE.tessere.filter(t=>t.tipo==='cantiere').map(t=>t.cantiereId));
+  let lista=CANTIERI.slice();
+  if(f) lista=lista.filter(c=>(c.nome||'').toLowerCase().includes(f)||(c.committente||'').toLowerCase().includes(f));
+  // attivi nella data in cima, poi per data recente
+  lista.sort((a,b)=>{
+    const aa=_attivoOggi(a)?0:1, bb=_attivoOggi(b)?0:1;
+    if(aa!==bb)return aa-bb;
+    return (b.periodoInizio||'').localeCompare(a.periodoInizio||'');
+  });
+  $('lista-cantieri').innerHTML=lista.slice(0,80).map(c=>{
+    const on=sulBoard.has(c.id);
+    return `<div class="cvoce${on?' sulboard':''}" onclick="addCantiere('${c.id}')">
+      <div><div class="cn">${esc(c.nome)}${_attivoOggi(c)?' <span style="color:var(--teal);font-size:9px">●</span>':''}</div>
+      ${c.committente?`<div class="cc">${esc(c.committente)}</div>`:''}</div>
+      <span class="plus">${on?'✓':'+'}</span></div>`;
+  }).join('')||'<div style="padding:14px;font-size:12px;color:var(--text2)">Nessun cantiere trovato</div>';
+}
+function _attivoOggi(c){
+  if(!DATA)return false;
+  const haInt=(c.interventi||[]).some(iv=>iv.data===DATA);
+  const inPer=c.periodoInizio&&c.periodoInizio<=DATA&&((c.periodoFine||c.periodoInizio)>=DATA);
+  return haInt||inPer;
+}
+function renderMezziPannello(){
+  $('mezzi-pannello').innerHTML=MEZZI.length
+    ? MEZZI.map(m=>{const nome=m.nome+(m.targa?' ('+m.targa+')':'');return '<span style="color:'+coloreMezzo(nome)+';font-size:13px">●</span> '+esc(m.nome)+(m.targa?' <span class="mono">'+esc(m.targa)+'</span>':'');}).join('<br>')
+    : 'Nessun mezzo in anagrafica';
+}
+
+/* ── tessere ── */
+function addCantiere(cid){
+  if(!DATA){ toast('Scegli prima la data'); return; }
+  const c=CANTIERI.find(x=>x.id===cid); if(!c)return;
+  if(STORE.tessere.some(t=>t.tipo==='cantiere'&&t.cantiereId===cid)) return;
+  // importa in bozza le lavorazioni già presenti nel planning per questo giorno
+  // (esclude i "gusci" vuoti: senza descrizione E senza squadra)
+  const lav=(c.interventi||[]).filter(iv=>iv.data===DATA && ((iv.descrizione||'').trim() || squadraArr(iv).length)).map(iv=>({
+    id:iv.id||uid('iv'), descrizione:iv.descrizione||'', oraInizio:iv.oraInizio||'08:00',
+    oraFine:iv.oraFine||'18:00', squadra:squadraArr(iv)
+  }));
+  const n=STORE.tessere.length;
+  STORE.tessere.push({id:uid('t'),tipo:'cantiere',cantiereId:cid,nome:c.nome,x:60+(n%4)*200,y:60+Math.floor(n/4)*130,lavorazioni:lav});
+  salva(); disegna(); renderListaCantieri();
+  toast('✓ '+c.nome+' sulla lavagna'+(lav.length?' ('+lav.length+' lavorazioni importate)':''));
+}
+function aggiungiPunto(){
+  if(!DATA){ toast('Scegli prima la data'); return; }
+  const nome=prompt('Nome del punto fisso:','Deposito'); if(!nome)return;
+  const n=STORE.tessere.length;
+  STORE.tessere.push({id:uid('t'),tipo:'punto',nome:nome.trim(),x:60+(n%4)*200,y:60+Math.floor(n/4)*130,lavorazioni:[]});
+  salva(); disegna();
+}
+function rimuoviTessera(id,ev){
+  if(ev)ev.stopPropagation();
+  STORE.tessere=STORE.tessere.filter(t=>t.id!==id);
+  STORE.link=STORE.link.filter(l=>l.da!==id&&l.a!==id);
+  salva(); disegna(); renderListaCantieri();
+}
+
+/* ── disegno board ── */
+function disegna(){
+  const board=$('board');
+  [...board.querySelectorAll('.tessera')].forEach(e=>e.remove());
+  STORE.tessere.forEach(t=>{
+    const el=document.createElement('div');
+    el.className='tessera'+(t.tipo==='punto'?' dep':'')+(_collega&&_linkDa===t.id?' partenza':'');
+    el.dataset.id=t.id;
+    el.style.left=t.x+'px'; el.style.top=t.y+'px';
+    const lav=t.lavorazioni||[];
+    const sq=[...new Set(lav.flatMap(l=>squadraArr(l)))];
+    el.innerHTML=`<div class="tnome"><span>${t.tipo==='punto'?'📦 ':''}${esc(t.nome)}</span><span class="tx" data-del="${t.id}">×</span></div>
+      ${lav.length?`<div class="tlav">${lav.slice(0,2).map(l=>esc(l.descrizione||'lavorazione')).join(' · ')}${lav.length>2?' +'+(lav.length-2):''}</div>`:''}
+      ${sq.length?`<div class="tsq">👷 ${sq.length} — ${esc(sq.slice(0,2).join(', '))}${sq.length>2?'…':''}</div>`:''}
+      ${(t.risorse||[]).length?`<div class="tsq" style="color:${_tesseraHaConflitti(t)?'var(--red)':'var(--text2)'}">${_tesseraHaConflitti(t)?'⚠ ':''}📦 ${(t.risorse||[]).length} risorse${_tesseraHaConflitti(t)?' — conflitto':''}</div>`:''}
+      ${t.tipo==='cantiere'?`<div class="tmod" data-mod="${t.id}">✎ lavorazioni / squadra</div>`:''}`;
+    board.appendChild(el);
+    attacca(el,t);
+  });
+  disegnaLink();
+}
+/* ── colori per mezzo (palette stabile: stesso mezzo → stesso colore, sempre) ── */
+const COLORI_MEZZI=['#C9A227','#00B4A6','#e85454','#5b9cf5','#a06ef5','#f28c3b','#3aa08c','#e8b84b','#d45bb0','#8fd14f'];
+function coloreMezzo(nome){
+  if(!nome) return '#C9A227';
+  const i=MEZZI.findIndex(m=>(m.nome+(m.targa?' ('+m.targa+')':''))===nome);
+  if(i>=0) return COLORI_MEZZI[i%COLORI_MEZZI.length];
+  let h=0; for(const c of String(nome)) h=(h*31+c.charCodeAt(0))>>>0;  // noleggi/extra: colore stabile dal nome
+  return COLORI_MEZZI[h%COLORI_MEZZI.length];
+}
+function disegnaLink(){
+  const svg=$('svg-links');
+  const centro=id=>{const t=STORE.tessere.find(x=>x.id===id);return t?{x:t.x+86,y:t.y+36}:null;};
+  // raggruppo i collegamenti per coppia di tessere (in entrambi i versi) per distribuire le curve
+  const gruppi={};
+  STORE.link.forEach((lk,i)=>{
+    const k=[lk.da,lk.a].sort().join('|');
+    if(!gruppi[k]) gruppi[k]={slots:[],perLink:{}};
+    const mezzi=(lk.mezzi&&lk.mezzi.length)?lk.mezzi:[null];
+    gruppi[k].perLink[i]=[];
+    mezzi.forEach(m=>{ gruppi[k].perLink[i].push(gruppi[k].slots.length); gruppi[k].slots.push({link:i,mezzo:m}); });
+  });
+  const defsColori=new Set(); let defs='', out='';
+  const markerId=c=>'fr'+c.replace('#','');
+  STORE.link.forEach((lk,i)=>{
+    const a=centro(lk.da), b=centro(lk.a); if(!a||!b) return;
+    const k=[lk.da,lk.a].sort().join('|');
+    const gr=gruppi[k]; const nSlots=gr.slots.length;
+    // perpendicolare coerente per tutta la coppia (indipendente dal verso del singolo link)
+    const [p1id,p2id]=[lk.da,lk.a].sort();
+    const P1=centro(p1id), P2=centro(p2id);
+    const dx=P2.x-P1.x, dy=P2.y-P1.y, L=Math.hypot(dx,dy)||1;
+    const px=-dy/L, py=dx/L; // unità perpendicolare
+    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    const passo=15;
+    const mieiSlot=gr.perLink[i];
+    let sommaOff=0;
+    mieiSlot.forEach(slotIdx=>{
+      const off=(slotIdx-(nSlots-1)/2)*passo; sommaOff+=off;
+      const colore=coloreMezzo(gr.slots[slotIdx].mezzo);
+      if(!defsColori.has(colore)){ defsColori.add(colore);
+        defs+=`<marker id="${markerId(colore)}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 Z" fill="${colore}"/></marker>`; }
+      // punto di controllo doppio dell'offset: la curva passa a distanza "off" a metà strada
+      const cx=mid.x+px*off*2, cy=mid.y+py*off*2;
+      out+=`<path d="M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}" fill="none" stroke="${colore}" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#${markerId(colore)})"/>`;
+    });
+    // etichette e comandi del collegamento, posizionati sulla curva media del link
+    const offEti=mieiSlot.length?sommaOff/mieiSlot.length:0;
+    const ex=mid.x+px*offEti, ey=mid.y+py*offEti;
+    const mezzi=(lk.mezzi||[]);
+    if(mezzi.length){
+      const tspans=mezzi.map((m,mi)=>`<tspan fill="${coloreMezzo(m)}">${esc(m)}</tspan>${mi<mezzi.length-1?'<tspan fill="#8a94a6">, </tspan>':''}`).join('');
+      out+=`<text x="${ex}" y="${ey-(lk.etichetta?32:18)}" text-anchor="middle" font-size="11" font-weight="700" style="pointer-events:all;cursor:pointer" data-editlink="${i}">🚛 ${tspans}</text>`;
+    }
+    if(lk.etichetta){
+      out+=`<text x="${ex}" y="${ey-18}" text-anchor="middle" font-size="10" fill="#e0e6ed" style="pointer-events:all;cursor:pointer" data-editlink="${i}">${esc(lk.etichetta)}</text>`;
+    }
+    out+=`<circle cx="${ex}" cy="${ey}" r="10" fill="#0a1628" stroke="#C9A227" style="pointer-events:all;cursor:pointer" data-dellink="${i}"/>
+      <text x="${ex}" y="${ey+4}" text-anchor="middle" font-size="12" fill="#C9A227" style="pointer-events:all;cursor:pointer" data-dellink="${i}">×</text>`;
+  });
+  svg.innerHTML='<defs>'+defs+'</defs>'+out;
+}
+/* click delegati su svg (elimina/modifica link) */
+document.addEventListener('click',e=>{
+  const del=e.target.getAttribute&&e.target.getAttribute('data-dellink');
+  if(del!=null){ STORE.link.splice(+del,1); salva(); disegna(); return; }
+  const ed=e.target.getAttribute&&e.target.getAttribute('data-editlink');
+  if(ed!=null){ apriMezzi(+ed); return; }
+});
+
+/* ── drag & drop (mouse-first, robusto) ── */
+function attacca(el,t){
+  el.addEventListener('mousedown',e=>{
+    // i controlli interni non avviano il drag
+    if(e.target.dataset.del){ rimuoviTessera(e.target.dataset.del); return; }
+    if(e.target.dataset.mod){ apriTessera(e.target.dataset.mod); return; }
+    if(_collega){ clickCollega(t.id); return; }
+    e.preventDefault();
+    const br=$('board').getBoundingClientRect();
+    _drag={id:t.id,offX:e.clientX-br.left-t.x,offY:e.clientY-br.top-t.y,el};
+    el.classList.add('trascina');
+  });
+}
+document.addEventListener('mousemove',e=>{
+  if(!_drag)return;
+  const br=$('board').getBoundingClientRect();
+  const t=STORE.tessere.find(x=>x.id===_drag.id); if(!t)return;
+  t.x=Math.max(0,e.clientX-br.left-_drag.offX);
+  t.y=Math.max(0,e.clientY-br.top-_drag.offY);
+  _drag.el.style.left=t.x+'px'; _drag.el.style.top=t.y+'px';
+  disegnaLink();
+});
+document.addEventListener('mouseup',()=>{
+  if(_drag){ _drag.el.classList.remove('trascina'); _drag=null; salva(); }
+});
+
+/* ── collegamenti ── */
+function toggleCollega(){
+  _collega=!_collega; _linkDa=null;
+  $('btn-collega').classList.toggle('attivo',_collega);
+  const h=$('hint');
+  h.style.display=_collega?'block':'none';
+  h.textContent=_collega?'🔗 Modo collegamento: clicca la tessera di PARTENZA, poi quella di ARRIVO. Ripremi "Collega" per uscire.':'';
+  disegna();
+}
+function clickCollega(id){
+  if(!_linkDa){ _linkDa=id; disegna(); $('hint').textContent='🔗 Partenza scelta (bordo oro). Ora clicca la tessera di ARRIVO.'; return; }
+  if(_linkDa===id){ _linkDa=null; disegna(); $('hint').textContent='🔗 Annullata. Clicca la tessera di partenza.'; return; }
+  _linkA=id; _linkEdit=null;
+  apriMezziNuovo();
+}
+function apriMezziNuovo(){ _renderModalMezzi([],''); apri('m-mezzi'); }
+function apriMezzi(idx){
+  _linkEdit=idx; const lk=STORE.link[idx];
+  _linkDa=lk.da; _linkA=lk.a;
+  _renderModalMezzi((lk.mezzi||[]).slice(),lk.etichetta||'');
+  apri('m-mezzi');
+}
+function _renderModalMezzi(sel,scopo){
+  const daN=(STORE.tessere.find(t=>t.id===_linkDa)||{}).nome||'?';
+  const aN=(STORE.tessere.find(t=>t.id===_linkA)||{}).nome||'?';
+  let h=`<div style="font-size:13px;color:var(--text2);margin-bottom:10px">Percorso: <b style="color:var(--text)">${esc(daN)}</b> → <b style="color:var(--text)">${esc(aN)}</b></div>
+    <label class="lbl">Mezzi sul tragitto (anche più di uno)</label><div id="mm-chips">`;
+  MEZZI.forEach(m=>{
+    const nome=m.nome+(m.targa?' ('+m.targa+')':'');
+    h+=`<span class="chip${sel.includes(nome)?' on':''}" data-m="${esc(nome)}" onclick="this.classList.toggle('on')"><span style="color:${coloreMezzo(nome)}">●</span> ${esc(nome)}</span>`;
+  });
+  h+=`</div>
+    <label class="lbl">Mezzo a noleggio / altro</label>
+    <div style="display:flex;gap:6px"><input class="inp" id="mm-extra" placeholder="Es. Noleggio DL123AB" style="flex:1"><button onclick="mmAddExtra()">+</button></div>
+    <div id="mm-extra-chips" style="margin-top:6px">${sel.filter(n=>!MEZZI.some(m=>(m.nome+(m.targa?' ('+m.targa+')':''))===n)).map(n=>`<span class="chip on" data-m="${esc(n)}" onclick="this.classList.toggle('on')">🚛 ${esc(n)}</span>`).join('')}</div>
+    <label class="lbl">Scopo (facoltativo)</label>
+    <input class="inp" id="mm-scopo" value="${esc(scopo)}" placeholder="Es. smontaggio palco, trasporto materiale">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button onclick="annullaPercorso()">Annulla</button>
+      <button class="primary" onclick="salvaPercorso()">${_linkEdit!=null?'Salva modifiche':'Crea percorso'}</button>
+    </div>`;
+  $('mm-body').innerHTML=h;
+}
+function mmAddExtra(){
+  const v=($('mm-extra').value||'').trim(); if(!v)return;
+  $('mm-extra-chips').insertAdjacentHTML('beforeend',`<span class="chip on" data-m="${esc(v)}" onclick="this.classList.toggle('on')">🚛 ${esc(v)}</span>`);
+  $('mm-extra').value='';
+}
+function salvaPercorso(){
+  const mezzi=[...document.querySelectorAll('#mm-body .chip.on')].map(c=>c.dataset.m);
+  const scopo=($('mm-scopo').value||'').trim();
+  if(_linkEdit!=null){ STORE.link[_linkEdit].mezzi=mezzi; STORE.link[_linkEdit].etichetta=scopo; }
+  else STORE.link.push({da:_linkDa,a:_linkA,mezzi,etichetta:scopo});
+  _linkDa=null;_linkA=null;_linkEdit=null;
+  chiudi('m-mezzi'); salva(); disegna();
+  if(_collega) $('hint').textContent='🔗 Percorso salvato. Puoi crearne altri o ripremere "Collega" per uscire.';
+}
+function annullaPercorso(){ _linkDa=null;_linkA=null;_linkEdit=null; chiudi('m-mezzi'); disegna(); }
+
+/* ── lavorazioni & squadra (in bozza, dentro la tessera) ── */
+function apriTessera(tid){
+  const t=STORE.tessere.find(x=>x.id===tid); if(!t)return;
+  $('mt-tit').textContent=t.nome+' · '+fdate(DATA);
+  const lav=t.lavorazioni||[];
+  let h='';
+  if(!lav.length) h+='<div style="font-size:13px;color:var(--text2);margin-bottom:10px">Nessuna lavorazione. Aggiungine una:</div>';
+  lav.forEach(l=>{
+    const sq=squadraArr(l);
+    h+=`<div class="lavbox">
+      <input class="inp" value="${esc(l.descrizione)}" placeholder="Descrizione lavorazione" onchange="modLav('${tid}','${l.id}','descrizione',this.value)" style="margin-bottom:7px">
+      <div style="display:flex;gap:6px;margin-bottom:7px">
+        <input class="inp" type="time" value="${l.oraInizio}" onchange="modLav('${tid}','${l.id}','oraInizio',this.value)" style="flex:1">
+        <input class="inp" type="time" value="${l.oraFine}" onchange="modLav('${tid}','${l.id}','oraFine',this.value)" style="flex:1">
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Squadra (${sq.length}):</div>
+      <div>${PERSONE.map(p=>`<span class="chip${sq.some(s=>s.toLowerCase()===p.toLowerCase())?' on':''}" onclick="toggleSq('${tid}','${l.id}','${esc(p).replace(/'/g,'')}')">${esc(p)}</span>`).join('')}</div>
+      <div style="text-align:right;margin-top:6px"><span onclick="delLav('${tid}','${l.id}')" style="cursor:pointer;font-size:11px;color:var(--red)">🗑 elimina</span></div>
+    </div>`;
+  });
+  h+=`<button style="width:100%" onclick="nuovaLav('${tid}')">+ Aggiungi lavorazione</button>`;
+  h+=renderRisorseTessera(tid);
+  $('mt-body').innerHTML=h;
+  apri('m-tessera');
+}
+function modLav(tid,lid,campo,val){ const t=STORE.tessere.find(x=>x.id===tid);if(!t)return; const l=(t.lavorazioni||[]).find(x=>x.id===lid);if(!l)return; l[campo]=val; salva(); disegna(); }
+function toggleSq(tid,lid,nome){
+  const t=STORE.tessere.find(x=>x.id===tid);if(!t)return; const l=(t.lavorazioni||[]).find(x=>x.id===lid);if(!l)return;
+  let sq=squadraArr(l);
+  if(sq.some(s=>s.toLowerCase()===nome.toLowerCase())) sq=sq.filter(s=>s.toLowerCase()!==nome.toLowerCase()); else sq.push(nome);
+  l.squadra=sq; salva(); apriTessera(tid); disegna();
+}
+function nuovaLav(tid){
+  const t=STORE.tessere.find(x=>x.id===tid);if(!t)return;
+  t.lavorazioni=t.lavorazioni||[];
+  t.lavorazioni.push({id:uid('iv'),descrizione:'',oraInizio:'08:00',oraFine:'18:00',squadra:[]});
+  salva(); apriTessera(tid); disegna();
+}
+function delLav(tid,lid){
+  const t=STORE.tessere.find(x=>x.id===tid);if(!t)return;
+  t.lavorazioni=(t.lavorazioni||[]).filter(x=>x.id!==lid);
+  salva(); apriTessera(tid); disegna();
+}
+
+/* ── copia / incolla giornata ── */
+function copiaGiornata(){
+  if(!STORE.tessere.length){ toast('La lavagna è vuota, niente da copiare'); return; }
+  _clipboard=JSON.parse(JSON.stringify(STORE));
+  $('btn-incolla').disabled=false; $('btn-incolla').style.opacity='1';
+  toast('📋 Giornata copiata ('+STORE.tessere.length+' tessere). Cambia data e premi Incolla.');
+}
+function incollaGiornata(){
+  if(!_clipboard){ toast('Prima copia una giornata'); return; }
+  if(STORE.tessere.length && !confirm('La lavagna di questo giorno non è vuota: incollando la sostituisci. Procedo?')) return;
+  STORE=JSON.parse(JSON.stringify(_clipboard));
+  // rigenera gli id delle lavorazioni (per non condividere id tra giorni)
+  STORE.tessere.forEach(t=>(t.lavorazioni||[]).forEach(l=>l.id=uid('iv')));
+  salva(); disegna(); renderListaCantieri();
+  toast('📥 Layout incollato su '+fdate(DATA)+'. Ora modificalo come serve.');
+}
+
+/* ── pubblicazione nel planning ── */
+function apriPubblica(){
+  if(!DATA){ toast('Scegli la data'); return; }
+  const tc=STORE.tessere.filter(t=>t.tipo==='cantiere');
+  if(!tc.length){ toast('Nessuna tessera cantiere da pubblicare'); return; }
+  const nLav=tc.reduce((s,t)=>s+(t.lavorazioni||[]).length,0);
+  $('mp-body').innerHTML=`
+    <div style="font-size:13px;line-height:1.6;margin-bottom:12px">
+      Sto per scrivere nel <b>planning</b> per il giorno <b>${fdate(DATA)}</b>:<br>
+      • <b>${tc.length}</b> cantieri (${tc.map(t=>esc(t.nome)).join(', ')})<br>
+      • <b>${nLav}</b> lavorazioni con orari e squadre
+    </div>
+    <div style="font-size:12px;color:var(--gold);background:rgba(201,162,39,.1);border:1px solid var(--gold);border-radius:8px;padding:9px 12px;margin-bottom:14px">
+      ⚠ Per i cantieri qui sopra, le lavorazioni del ${fdate(DATA)} già presenti nel planning verranno <b>sostituite</b> da queste. Gli altri cantieri e gli altri giorni non vengono toccati.
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="chiudi('m-pubblica')">Annulla</button>
+      <button class="primary" onclick="pubblica()">📤 Pubblica</button>
+    </div>`;
+  apri('m-pubblica');
+}
+async function pubblica(){
+  chiudi('m-pubblica');
+  toast('⏳ Pubblicazione…');
+  try{
+    // legge il blob FRESCO (per non sovrascrivere lavoro altrui)
+    const r=await fetch(SB+'/rest/v1/gestionale_dati?id=eq.unico&select=dati',{headers:H,cache:'no-cache'});
+    const rows=await r.json();
+    let dati=rows[0]&&rows[0].dati; if(typeof dati==='string')dati=JSON.parse(dati);
+    if(!dati||!dati.cantieri){ toast('⚠ Impossibile leggere il planning'); return; }
+    let scritte=0;
+    STORE.tessere.filter(t=>t.tipo==='cantiere').forEach(t=>{
+      const c=dati.cantieri.find(x=>x.id===t.cantiereId); if(!c)return;
+      c.interventi=(c.interventi||[]).filter(iv=>iv.data!==DATA); // via le lavorazioni del giorno per questo cantiere
+      // pubblica solo le lavorazioni "vere": con descrizione o con squadra (i gusci vuoti si scartano)
+      (t.lavorazioni||[]).filter(l=>(l.descrizione||'').trim()||squadraArr(l).length).forEach(l=>{
+        c.interventi.push({id:l.id,data:DATA,oraInizio:l.oraInizio,oraFine:l.oraFine,squadra:l.squadra||[],descrizione:l.descrizione||''});
+        scritte++;
+      });
+    });
+    await fetch(SB+'/rest/v1/gestionale_dati?id=eq.unico',{
+      method:'PATCH',headers:H,
+      body:JSON.stringify({dati,aggiornato_il:new Date().toISOString()})
+    });
+    STATO='pubblicato'; _dirty=true; await salvaOra();
+    aggiornaStatoPill();
+    // aggiorna anche la copia locale dei cantieri
+    CANTIERI=dati.cantieri;
+    toast('✓ Pubblicato: '+scritte+' lavorazioni nel planning per '+fdate(DATA));
+  }catch(e){ toast('⚠ Errore pubblicazione: '+String(e.message||e).slice(0,50)); }
+}
+
+/* ── RISORSE IN BOZZA (Tappa 2): sola lettura disponibilità, conflitti, trasferimenti pianificati.
+   Nessuna scrittura su `allocazioni` qui — avverrà solo alla pubblicazione (Tappa 3). ── */
+// richieste della stessa risorsa dalle ALTRE tessere di questa giornata (bozza)
+function _risRichiesteAltrove(risorsaId, tesseraEsclusa){
+  let s=0;
+  STORE.tessere.forEach(t=>{
+    if(t.id===tesseraEsclusa) return;
+    (t.risorse||[]).forEach(r=>{ if(r.risorsa_id===risorsaId && !r.da) s+=parseFloat(r.qty||0); });
+  });
+  return s;
+}
+// stato di una riga risorsa in bozza → {ok, msg, colore, dove:[{id,nome,qty}]}
+function _risStato(t, r){
+  const ris=RIS.find(x=>x.id===r.risorsa_id); if(!ris) return {ok:false,msg:'risorsa non trovata',colore:'var(--red)'};
+  const q=parseFloat(r.qty||0);
+  if(r.da){ // trasferimento pianificato: verifico la disponibilità sul cantiere di provenienza
+    const suA=allocSuCantiere(ALLOC, r.risorsa_id, r.da.id, DATA).reduce((s,a)=>s+parseFloat(a.qty||0),0);
+    if(q<=suA) return {ok:true, msg:`⇄ trasferimento pianificato da ${r.da.nome} (lì ce ne sono ${suA})`, colore:'var(--gold)'};
+    return {ok:false, msg:`⚠ su ${r.da.nome} ce ne sono solo ${suA}`, colore:'var(--red)'};
+  }
+  const disp=allocDisponibile(ris, ALLOC, DATA) - _risRichiesteAltrove(r.risorsa_id, t.id);
+  if(q<=disp) return {ok:true, msg:`✓ disponibili ${disp} di ${parseFloat(ris.qty_totale||0)}`, colore:'var(--teal)'};
+  // conflitto: dico dove stanno
+  const dove={};
+  ALLOC.filter(a=>a.risorsa_id===r.risorsa_id && a.data_uscita<=DATA && (!a.data_rientro||a.data_rientro>=DATA) && a.cantiere_id)
+    .forEach(a=>{ const k=a.cantiere_id; if(!dove[k])dove[k]={id:k,nome:a.cantiere_nome||'?',qty:0}; dove[k].qty+=parseFloat(a.qty||0); });
+  return {ok:false, msg:`⚠ ne restano ${Math.max(0,disp)} (chiesti ${q})`, colore:'var(--red)', dove:Object.values(dove).sort((a,b)=>b.qty-a.qty)};
+}
+function _tesseraHaConflitti(t){
+  return (t.risorse||[]).some(r=>!_risStato(t,r).ok);
+}
+function renderRisorseTessera(tid){
+  const t=STORE.tessere.find(x=>x.id===tid); if(!t) return '';
+  const righe=(t.risorse||[]).map((r,i)=>{
+    const ris=RIS.find(x=>x.id===r.risorsa_id);
+    const st=_risStato(t,r);
+    let doveHtml='';
+    if(!st.ok && st.dove && st.dove.length){
+      doveHtml='<div style="font-size:11px;color:var(--text2);margin:4px 0 0 2px">Dove sono: '+
+        st.dove.map(d=>`${esc(d.nome)} <b>${d.qty}</b> <span onclick="risPianificaDa('${tid}',${i},'${d.id}','${esc(d.nome).replace(/'/g,"")}')" style="cursor:pointer;color:var(--gold)">[⇄ da qui]</span>`).join(' · ')+'</div>';
+    }
+    return `<div class="lavbox" style="padding:9px 11px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <b style="flex:1;font-size:12.5px">${esc(ris?ris.nome:'?')}</b>
+        <input class="inp" type="number" min="1" value="${parseFloat(r.qty||0)}" onchange="risModQty('${tid}',${i},this.value)" style="width:74px;text-align:right">
+        <span style="font-size:11px;color:var(--text2)">${esc(ris?ris.unita||'pz':'')}</span>
+        <span onclick="risDel('${tid}',${i})" style="cursor:pointer;color:var(--red);font-size:13px">🗑</span>
+      </div>
+      <div style="font-size:11.5px;margin-top:4px;color:${st.colore};font-weight:600">${st.msg}
+        ${r.da?` <span onclick="risTogliDa('${tid}',${i})" style="cursor:pointer;color:var(--text2);font-weight:400">(annulla)</span>`:''}</div>
+      ${doveHtml}
+    </div>`;
+  }).join('');
+  const opzioni=RIS.filter(x=>x.attiva!==false).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''))
+    .map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px">📦 Risorse <span style="font-weight:400;text-transform:none">· disponibilità al ${fdate(DATA)} — si impegnano solo alla pubblicazione</span></div>
+    ${righe||''}
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <select id="ris-sel-${tid}" class="inp" style="flex:1">${opzioni}</select>
+      <input id="ris-qty-${tid}" class="inp" type="number" min="1" placeholder="Qtà" style="width:80px">
+      <button onclick="risAdd('${tid}')">+</button>
+    </div>
+  </div>`;
+}
+function risAdd(tid){
+  const t=STORE.tessere.find(x=>x.id===tid); if(!t) return;
+  const rid=document.getElementById('ris-sel-'+tid).value;
+  const q=parseFloat(document.getElementById('ris-qty-'+tid).value||0);
+  if(!rid||!q||q<=0){ toast('Scegli risorsa e quantità'); return; }
+  t.risorse=t.risorse||[];
+  const gia=t.risorse.find(r=>r.risorsa_id===rid && !r.da);
+  if(gia) gia.qty=parseFloat(gia.qty||0)+q; else t.risorse.push({risorsa_id:rid, qty:q});
+  salva(); apriTessera(tid); disegna();
+}
+function risModQty(tid,i,val){ const t=STORE.tessere.find(x=>x.id===tid); if(!t||!t.risorse[i])return; t.risorse[i].qty=parseFloat(val||0); salva(); apriTessera(tid); disegna(); }
+function risDel(tid,i){ const t=STORE.tessere.find(x=>x.id===tid); if(!t)return; t.risorse.splice(i,1); salva(); apriTessera(tid); disegna(); }
+function risPianificaDa(tid,i,cantId,cantNome){
+  const t=STORE.tessere.find(x=>x.id===tid); if(!t||!t.risorse[i])return;
+  t.risorse[i].da={id:cantId,nome:cantNome};
+  salva(); apriTessera(tid); disegna();
+  toast('⇄ Trasferimento pianificato da '+cantNome+' — si eseguirà alla pubblicazione');
+}
+function risTogliDa(tid,i){ const t=STORE.tessere.find(x=>x.id===tid); if(!t||!t.risorse[i])return; delete t.risorse[i].da; salva(); apriTessera(tid); disegna(); }
+
+/* ── VADEMECUM: documento stampabile della giornata (mappa + programma + spostamenti) ── */
+function buildVademecumHTML(){
+  const T=STORE.tessere, L=STORE.link;
+  if(!T.length) return null;
+  // ── mappa SVG su carta bianca, ritagliata sul contenuto ──
+  const W=172,Hh=70,M=60;
+  const minX=Math.min(...T.map(t=>t.x))-M, minY=Math.min(...T.map(t=>t.y))-M;
+  const maxX=Math.max(...T.map(t=>t.x))+W+M, maxY=Math.max(...T.map(t=>t.y))+Hh+M;
+  const centro=id=>{const t=T.find(x=>x.id===id);return t?{x:t.x+W/2,y:t.y+36}:null;};
+  // curve con gli stessi offset/colori della lavagna
+  const gruppi={};
+  L.forEach((lk,i)=>{ const k=[lk.da,lk.a].sort().join('|');
+    if(!gruppi[k])gruppi[k]={slots:[],perLink:{}};
+    const mz=(lk.mezzi&&lk.mezzi.length)?lk.mezzi:[null];
+    gruppi[k].perLink[i]=[]; mz.forEach(m=>{gruppi[k].perLink[i].push(gruppi[k].slots.length);gruppi[k].slots.push({mezzo:m});}); });
+  const defsC=new Set(); let defs='',curve='',eti='';
+  L.forEach((lk,i)=>{
+    const a=centro(lk.da),b=centro(lk.a); if(!a||!b)return;
+    const k=[lk.da,lk.a].sort().join('|'); const gr=gruppi[k]; const n=gr.slots.length;
+    const [p1,p2]=[lk.da,lk.a].sort(); const P1=centro(p1),P2=centro(p2);
+    const dx=P2.x-P1.x,dy=P2.y-P1.y,Ln=Math.hypot(dx,dy)||1; const px=-dy/Ln,py=dx/Ln;
+    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2}; let som=0;
+    gr.perLink[i].forEach(si=>{ const off=(si-(n-1)/2)*15; som+=off;
+      const col=coloreMezzo(gr.slots[si].mezzo);
+      if(!defsC.has(col)){defsC.add(col);defs+=`<marker id="vm${col.replace('#','')}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 Z" fill="${col}"/></marker>`;}
+      curve+=`<path d="M ${a.x} ${a.y} Q ${mid.x+px*off*2} ${mid.y+py*off*2} ${b.x} ${b.y}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#vm${col.replace('#','')})"/>`; });
+    const offE=gr.perLink[i].length?som/gr.perLink[i].length:0;
+    if(lk.etichetta) eti+=`<text x="${mid.x+px*offE}" y="${mid.y+py*offE-8}" text-anchor="middle" font-size="10" fill="#333">${esc(lk.etichetta)}</text>`;
+  });
+  let tessere='';
+  T.forEach(t=>{
+    const isDep=t.tipo==='punto';
+    const lav=t.lavorazioni||[];
+    tessere+=`<rect x="${t.x}" y="${t.y}" width="${W}" height="${Hh}" rx="12" fill="#fff" stroke="${isDep?'#C9A227':'#00B4A6'}" stroke-width="2"/>
+      <text x="${t.x+10}" y="${t.y+22}" font-size="13" font-weight="800" fill="#111">${isDep?'📦 ':''}${esc(t.nome.slice(0,20))}</text>
+      ${lav[0]?`<text x="${t.x+10}" y="${t.y+40}" font-size="9.5" fill="#0a7d73">${esc((lav[0].descrizione||'').slice(0,28))}</text>`:''}
+      ${lav[0]?`<text x="${t.x+10}" y="${t.y+56}" font-size="9" fill="#666">${lav[0].oraInizio||''}${lav[0].oraFine?'–'+lav[0].oraFine:''}${squadraArr(lav[0]).length?' · 👷 '+squadraArr(lav[0]).length:''}</text>`:''}`;
+  });
+  const svgMappa=`<svg viewBox="${minX} ${minY} ${maxX-minX} ${maxY-minY}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-height:118mm;background:#fafafa;border:1px solid #ddd;border-radius:8px"><defs>${defs}</defs>${curve}${eti}${tessere}</svg>`;
+
+  // ── programma per cantiere ──
+  const oraKey=l=>(l.oraInizio||'99:99');
+  let progr='';
+  T.filter(t=>t.tipo==='cantiere'&&((t.lavorazioni||[]).length||(t.risorse||[]).length)).forEach(t=>{
+    const lav=[...(t.lavorazioni||[])].sort((a,b)=>oraKey(a).localeCompare(oraKey(b)));
+    const risRiga=(t.risorse||[]).map(r=>{const x=RIS.find(y=>y.id===r.risorsa_id);return parseFloat(r.qty)+' '+esc(x?x.nome:'?')+(r.da?' (⇄ ritiro da '+esc(r.da.nome)+')':'');}).join(' · ');
+    progr+=`<div class="cant"><div class="cnome">🏗 ${esc(t.nome)}</div>${risRiga?`<div style="font-size:11px;color:#555;margin:2px 0 5px">📦 ${risRiga}</div>`:''}`+lav.map(l=>{
+      const sq=squadraArr(l);
+      return `<div class="lav"><span class="ora">${l.oraInizio||'—'}${l.oraFine?' – '+l.oraFine:''}</span> <b>${esc(l.descrizione||'lavorazione')}</b>${sq.length?`<div class="sq">👷 ${esc(sq.join(', '))}</div>`:''}</div>`;
+    }).join('')+'</div>';
+  });
+
+  // ── spostamenti per mezzo ──
+  const perMezzo={};
+  L.forEach(lk=>{
+    const daN=(T.find(x=>x.id===lk.da)||{}).nome||'?', aN=(T.find(x=>x.id===lk.a)||{}).nome||'?';
+    (lk.mezzi&&lk.mezzi.length?lk.mezzi:['(mezzo da definire)']).forEach(m=>{
+      (perMezzo[m]=perMezzo[m]||[]).push({da:daN,a:aN,scopo:lk.etichetta||''});
+    });
+  });
+  let spost='';
+  Object.keys(perMezzo).sort().forEach(m=>{
+    const col=coloreMezzo(m==='(mezzo da definire)'?null:m);
+    spost+=`<div class="mz"><span class="pallino" style="background:${col}"></span><b>${esc(m)}</b><div class="giro">${perMezzo[m].map(v=>`→ ${esc(v.da)} ⇒ ${esc(v.a)}${v.scopo?` <i>(${esc(v.scopo)})</i>`:''}`).join('<br>')}</div></div>`;
+  });
+
+  // ── la giornata per persona ──
+  const perPersona={};
+  T.filter(t=>t.tipo==='cantiere').forEach(t=>(t.lavorazioni||[]).forEach(l=>squadraArr(l).forEach(p=>{
+    (perPersona[p]=perPersona[p]||[]).push({ora:l.oraInizio||'',fine:l.oraFine||'',cant:t.nome,desc:l.descrizione||''});
+  })));
+  let persone='';
+  Object.keys(perPersona).sort().forEach(p=>{
+    const imp=perPersona[p].sort((a,b)=>(a.ora||'99').localeCompare(b.ora||'99'));
+    persone+=`<tr><td class="pn">${esc(p)}</td><td>${imp.map(x=>`${x.ora}${x.fine?'–'+x.fine:''} <b>${esc(x.cant)}</b>${x.desc?' · '+esc(x.desc.slice(0,40)):''}`).join('<br>')}</td></tr>`;
+  });
+
+  const dataBella=new Date(DATA+'T12:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  return `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Programma ${DATA}</title><style>
+    @page{size:A4;margin:12mm}
+    body{font-family:-apple-system,'Segoe UI',sans-serif;color:#111;margin:0;font-size:12px}
+    h1{font-size:19px;margin:0 0 2px}h1 span{color:#0a7d73}
+    .sotto{color:#666;font-size:12px;margin-bottom:10px;text-transform:capitalize}
+    h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #0a7d73;padding-bottom:3px;margin:16px 0 8px}
+    .cant{margin-bottom:9px;padding:8px 11px;border:1px solid #ddd;border-radius:8px;page-break-inside:avoid}
+    .cnome{font-weight:800;font-size:13px;margin-bottom:4px}
+    .lav{margin:3px 0;padding-left:6px}
+    .ora{font-family:Menlo,monospace;font-size:11px;background:#eef7f6;padding:1px 6px;border-radius:5px;margin-right:5px}
+    .sq{font-size:11px;color:#555;margin:2px 0 0 4px}
+    .mz{margin-bottom:8px;page-break-inside:avoid}
+    .pallino{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+    .giro{margin:3px 0 0 18px;line-height:1.55;font-size:11.5px}
+    table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #eee;padding:5px 7px;vertical-align:top;font-size:11.5px}
+    .pn{font-weight:800;white-space:nowrap;width:120px}
+    .brk{page-break-before:always}
+  </style></head><body>
+    <h1>81|00 <span>Programma della giornata</span></h1>
+    <div class="sotto">${dataBella}</div>
+    ${svgMappa}
+    <h2>Programma per cantiere</h2>${progr||'<i>Nessuna lavorazione inserita</i>'}
+    <h2>Spostamenti mezzi</h2>${spost||'<i>Nessun percorso tracciato</i>'}
+    ${persone?`<h2>La giornata per persona</h2><table>${persone}</table>`:''}
+  <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`;
+}
+function stampaVademecum(){
+  if(!DATA){ toast('Scegli la data'); return; }
+  const html=buildVademecumHTML();
+  if(!html){ toast('La lavagna è vuota'); return; }
+  const w=window.open('','_blank');
+  if(!w){ toast('⚠ Consenti i popup per stampare'); return; }
+  w.document.write(html); w.document.close();
+}
+
+/* ── avvio ── */
+(async function(){
+  const oggi=new Date().toISOString().slice(0,10);
+  $('data').value=oggi; DATA=oggi;
+  await caricaBase();
+  await caricaGiornata();
+})();
+</script>
+</body>
+</html>
