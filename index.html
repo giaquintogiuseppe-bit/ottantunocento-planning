@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="81|00 Planning">
+<meta name="theme-color" content="#0a1628">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>81|00 Planning Lavori</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0a1628;--navy2:#0f1f3d;--teal:#00b4a6;--teal2:#00d4c4;--td:rgba(0,180,166,.13);--td2:rgba(0,180,166,.06);--gold:#e8b84b;--red:#e84b4b;--green:#4be87a;--text:#e8eaf0;--text2:#8a95a8;--brd:rgba(255,255,255,.07);--card:rgba(255,255,255,.04);--r:12px;--r2:8px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--navy);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
+#app{display:flex;flex-direction:column;height:100dvh}
+/* HEADER */
+#hdr{background:var(--navy2);border-bottom:1px solid var(--brd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10}
+#hdr-logo{font-size:21px;font-weight:800;color:var(--teal)}
+#hdr-logo span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:1px}
+#hdr-r{display:flex;align-items:center;gap:12px}
+#hdr-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);text-align:right}
+#hdr-date b{display:block;color:var(--teal);font-size:13px}
+#cloud-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+#cloud-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2);transition:background .3s}
+/* LAYOUT */
+#main{display:flex;flex:1;overflow:hidden}
+#sb{width:215px;background:var(--navy2);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.ns{padding:18px 12px 7px;font-size:11px;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:10px;padding:10px 15px;margin:2px 7px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;border:1px solid transparent}
+.ni:hover{background:var(--td2);color:var(--text)}
+.ni.active{background:var(--td);color:var(--teal);border-color:rgba(0,180,166,.2)}
+#sbf{margin-top:auto;padding:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:7px}
+.btn-sb{width:100%;padding:8px;border-radius:var(--r2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-teal{background:var(--td);color:var(--teal);border:1px solid rgba(0,180,166,.3)}
+.btn-teal:hover{background:var(--teal);color:var(--navy)}
+.btn-gold{background:rgba(232,184,75,.12);color:var(--gold);border:1px solid rgba(232,184,75,.3)}
+.btn-gold:hover{background:var(--gold);color:var(--navy)}
+.btn-gray{background:transparent;color:var(--text2);border:1px solid var(--brd)}
+.btn-gray:hover{border-color:var(--text2);color:var(--text)}
+/* CONTENT */
+#cnt{flex:1;overflow-y:auto;padding:22px}
+.pg{display:none}.pg.active{display:block;animation:fi .18s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.pt{font-size:25px;font-weight:800;margin-bottom:3px}
+.ps{font-size:13px;color:var(--text2);margin-bottom:20px;font-family:'DM Mono',monospace}
+/* STAT CARDS */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;margin-bottom:20px}
+.sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:15px}
+.sc .lb{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.sc .vl{font-size:24px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace}
+.sc .sb2{font-size:12px;color:var(--text2);margin-top:3px}
+/* FORM */
+.fc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:18px}
+.fc h3{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fg label{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px}
+.fg input,.fg select,.fg textarea{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;outline:none;width:100%;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal)}
+.fg textarea{resize:vertical;min-height:60px}
+.fg select option{background:var(--navy2)}
+.fa{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
+.bp{padding:9px 18px;background:var(--teal);color:var(--navy);border:none;border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
+.bp:hover{background:var(--teal2)}
+.bs{padding:9px 18px;background:transparent;color:var(--text2);border:1px solid var(--brd);border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:600;font-size:13px;cursor:pointer}
+.bd{padding:5px 10px;background:transparent;color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:var(--r2);font-family:'Syne',sans-serif;font-weight:600;font-size:12px;cursor:pointer}
+.bd:hover{background:rgba(232,75,75,.1)}
+/* TABLE */
+.tc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.th{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap;gap:8px}
+.th h3{font-size:13px;font-weight:700}
+.ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
+.ts:focus{border-color:var(--teal)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:9px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);background:rgba(255,255,255,.02);border-bottom:1px solid var(--brd);font-weight:700}
+tbody tr{border-bottom:1px solid var(--brd);transition:background .1s}
+tbody tr:nth-child(even){background:var(--td2)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(0,180,166,.08)}
+tbody td{padding:10px 14px;vertical-align:middle}
+.mn{font-family:'DM Mono',monospace}
+/* BADGE */
+.bx{display:inline-block;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700}
+.bg{background:rgba(75,232,122,.15);color:var(--green)}
+.br{background:rgba(232,75,75,.15);color:var(--red)}
+.bo{background:rgba(232,184,75,.15);color:var(--gold)}
+.bt{background:var(--td);color:var(--teal)}
+.bz{background:rgba(138,149,168,.15);color:var(--text2)}
+/* DASHBOARD */
+.dg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+@media(min-width:860px){.dg{grid-template-columns:repeat(4,1fr)}}
+.dc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
+.dc .dl{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.dc .dv{font-size:28px;font-weight:800;color:var(--teal);font-family:'DM Mono',monospace;line-height:1}
+.dc .ds{font-size:11px;color:var(--text2);margin-top:5px;font-family:'DM Mono',monospace}
+.rl{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
+.ri{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--brd);gap:10px}
+.ri:last-child{border-bottom:none}
+.ri .rlt{font-size:13px;font-weight:600}
+.card-title{font-size:14px;font-weight:700}
+.ri .rls{font-size:11px;color:var(--text2);margin-top:2px;font-family:'DM Mono',monospace}
+.sl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:9px;font-weight:700}
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.mo.open{display:flex}
+.md{background:var(--navy2);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:600px;max-height:92dvh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd)}
+.mh h3{font-size:15px;font-weight:700}
+.mc{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1}
+.mb{padding:18px 20px}
+.mf{padding:13px 20px;border-top:1px solid var(--brd);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+/* MOBILE NAV */
+#mnav{display:none;background:var(--navy2);border-top:1px solid var(--brd);flex-shrink:0}
+.mni{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 2px}
+.mni::-webkit-scrollbar{display:none}
+.mni-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);border-top:2px solid transparent;flex-shrink:0;white-space:nowrap}
+.mni-item .mii{font-size:18px}
+.mni-item.active{color:var(--teal);border-top-color:var(--teal)}
+/* IMPORT CALENDAR */
+.gcal-login-box{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:24px;text-align:center;margin-bottom:18px}
+.gcal-login-box p{font-size:13px;color:var(--text2);margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto}
+.gcal-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:14px}
+.gcal-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2)}
+.gcal-status-dot.ok{background:var(--green)}
+.ev-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ev-card.imported{opacity:.55}
+.ev-info{flex:1;min-width:180px}
+.ev-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.ev-meta{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.ev-actions{display:flex;gap:7px;flex-wrap:wrap}
+/* MOBILE PWA */
+.oggi-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.oggi-card .oc-label{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;font-weight:700}
+.oggi-card .oc-title{font-size:16px;font-weight:800;margin-bottom:4px}
+.oggi-card .oc-meta{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace}
+.oggi-intervento{background:var(--td2);border-left:3px solid var(--teal);border-radius:0 var(--r2) var(--r2) 0;padding:10px 13px;margin-bottom:8px}
+.oggi-intervento .oi-time{font-size:13px;font-weight:700;color:var(--teal);font-family:'DM Mono',monospace}
+.oggi-intervento .oi-desc{font-size:13px;font-weight:600;margin:2px 0}
+.oggi-intervento .oi-meta{font-size:11px;color:var(--text2)}
+.pwa-install-banner{background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pwa-install-banner p{font-size:12px;color:var(--text);margin:0}
+@media(max-width:700px){
+  #sb{display:none}#mnav{display:block}#cnt{padding:14px 14px 84px}
+  .sg{grid-template-columns:1fr}.fg{grid-template-columns:1fr}
+  .dg{grid-template-columns:repeat(2,1fr);gap:10px}
+  thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none}
+
+  /* bottom nav più grande su mobile */
+  .mni-item{padding:10px 10px;font-size:11px}
+  .mni-item .mii{font-size:22px}
+
+  /* card touch-friendly con più respiro */
+  .fc{padding:16px;margin-bottom:14px}
+  .sc{padding:16px}
+  .bp,.bs{padding:11px 16px;font-size:13px}
+
+  /* RIGHE LISTA — più alte, info impilate invece che affiancate */
+  .ri{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 15px}
+  .ri>div:first-child{width:100%}
+  .ri>div:last-child,.ri>span:last-child{align-self:flex-start}
+
+  /* titoli e testi più leggibili, meno compressi */
+  .pt{font-size:24px;margin-bottom:5px}
+  .ps{font-size:14px;margin-bottom:18px;line-height:1.4}
+  .sl{font-size:12px;letter-spacing:1.2px;margin-top:22px;margin-bottom:11px}
+  .rlt{font-size:16px;line-height:1.4}
+  .rls{font-size:13px;line-height:1.5;color:var(--text2)}
+
+  /* card griglia (es. dipendenti, mezzi, risorse) a colonna singola */
+  div[style*="grid-template-columns:repeat(auto-fill"]{grid-template-columns:1fr !important}
+
+  /* form: più spazio tra campi */
+  .fg{gap:14px}
+  .fg label{font-size:11px;margin-bottom:6px}
+  .fg input,.fg select,.fg textarea{padding:11px 12px;font-size:14px}
+
+  /* badge e bx più leggibili */
+  .bx{font-size:11px;padding:4px 10px}
+
+  /* sezioni form con titoli h3 più staccati */
+  .fc h3{font-size:13px;margin-bottom:12px;padding-bottom:8px}
+
+  /* modal full-screen su mobile */
+  .md{max-height:100dvh;border-radius:14px 14px 0 0;position:fixed;bottom:0;left:0;right:0;width:100%}
+  .mo{align-items:flex-end;padding:0}
+  .mb{padding:18px}
+  .mf{padding:14px 18px;gap:10px}
+
+  /* tabelle: testo più leggibile, meno colonne affollate */
+  table{font-size:12px}
+  td,th{padding:10px 8px !important}
+}
+@media(max-width:420px){
+  /* schermi molto piccoli (iPhone SE/mini): ulteriore respiro */
+  .pt{font-size:20px}
+  .dg{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  /* pagina Oggi: più aria tra intervento e intervento */
+  .oggi-card{padding:18px;margin-bottom:14px}
+  .oggi-card .oc-title{font-size:18px;line-height:1.3}
+  .oggi-card .oc-meta{font-size:13px}
+  .oggi-intervento{padding:14px 16px;margin-bottom:10px}
+  .oggi-intervento .oi-desc{font-size:15px;line-height:1.4;margin:4px 0}
+  .oggi-intervento .oi-time{font-size:14px}
+  .oggi-intervento .oi-meta{font-size:12px}
+
+  /* card con header flex (nome+badge) vanno in colonna su mobile stretto */
+  .fc>div[style*="justify-content:space-between"]{flex-direction:column;align-items:flex-start !important;gap:8px}
+  .fc>div[style*="justify-content:space-between"]>div:last-child{align-self:flex-start;flex-direction:row !important;flex-wrap:wrap}
+
+  /* titoli card (nome dipendente/mezzo/cantiere) più grandi e leggibili */
+  .card-title{font-size:17px !important;font-weight:800 !important;line-height:1.3}
+  .rlt{font-size:16px !important;font-weight:700;line-height:1.35}
+  .rls{font-size:13px !important;line-height:1.5}
+
+  /* badge/tag multipli: più grandi, più margine, più leggibili */
+  .bx{font-size:11px !important;padding:5px 11px !important;margin:3px;font-weight:800}
+  span.bx{margin:3px}
+
+  /* testo secondario (telefono, note, meta) leggermente più grande */
+  div[style*="font-size:11px"],div[style*="font-size:11px"]{font-size:12px !important}
+  div[style*="font-size:11px"]{font-size:11px !important}
+
+  /* righe lista ancora più alte */
+  .ri{padding:16px}
+  .rl .ri{min-height:60px}
+}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal);color:var(--navy);padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<div id="hdr">
+  <div id="hdr-logo">81|00<span>Planning Lavori</span></div>
+  <div id="hdr-r">
+    <!-- Badge notifica proposte Roberto nell'header -->
+    <button onclick="nav('inbox');caricaInbox()" style="position:relative;background:transparent;border:1px solid var(--brd);border-radius:8px;padding:6px 12px;color:var(--text2);font-family:'Syne',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+      📨 Proposte
+      <span id="hdr-inbox-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:18px;height:18px;align-items:center;justify-content:center;flex-shrink:0">0</span>
+    </button>
+    <div id="cloud-status"><span id="cloud-status-dot"></span><span id="cloud-status-text">—</span></div>
+    <div id="hdr-date"><b id="hdate"></b><span id="htime"></span></div>
+  </div>
+</div>
+
+<div id="main">
+<!-- SIDEBAR -->
+<div id="sb">
+  <div class="ns">Overview</div>
+  <div class="ni active" onclick="nav('dash')">⬛ Dashboard</div>
+  <div class="ni" onclick="nav('oggi')">📋 Oggi</div>
+  <div class="ns">Pianificazione</div>
+  <div class="ni" onclick="nav('cantieri')">🏗️ Cantieri</div>
+  <div class="ni" onclick="nav('calendario')">📅 Calendario</div>
+  <div class="ni" onclick="nav('import-cal')">📥 Importa da Calendar</div>
+  <div class="ni" onclick="nav('risorse2')">🪑 Risorse & Depositi</div>
+  <div class="ni" onclick="nav('mezzi-db')">🚛 Mezzi d'opera</div>
+  <div class="ns">Clienti</div>
+  <div class="ni" onclick="nav('clienti')">👥 Clienti</div>
+  <div class="ns">Risorse</div>
+  <div class="ni" onclick="nav('personale')">👷 Personale</div>
+  <div class="ni" onclick="nav('squadre')">👥 Squadre</div>
+  <div class="ni" onclick="nav('mezzi-db')">🚛 Mezzi d'opera</div>
+  <div class="ns">Sistema</div>
+  <div class="ni" id="ni-inbox" onclick="nav('inbox')">📥 Inbox Roberto <span id="sb-inbox-badge" style="display:none;background:var(--gold);color:#000;font-size:11px;font-weight:800;border-radius:8px;padding:1px 6px;margin-left:4px">0</span></div>
+  <div class="ni" onclick="nav('sync')">☁️ Sync & Calendar</div>
+  <div id="sbf">
+    <button class="btn-sb btn-gold" onclick="nav('cantieri')">📊 Esporta programma</button>
+    <button class="btn-sb btn-teal" onclick="cloudSalvaOra()">☁️ Salva sul cloud</button>
+    <button class="btn-sb btn-gray" onclick="cloudCaricaOra()">📂 Carica dal cloud</button>
+    <button class="btn-sb btn-teal" onclick="planningExportJSON()">⬇ Backup JSON</button>
+    <button class="btn-sb btn-gray" onclick="document.getElementById('impFP').click()">⬆ Ripristina JSON</button>
+    <input type="file" id="impFP" accept=".json" style="display:none" onchange="planningImportJSON(event)">
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="cnt">
+
+  <!-- OGGI — vista mobile-first -->
+  <div id="pg-oggi" class="pg">
+    <div class="pt" id="oggi-titolo">Oggi</div>
+    <div class="ps" id="oggi-data"></div>
+    <div id="oggi-install-banner" class="pwa-install-banner" style="display:none">
+      <p>📱 Installa l'app sulla schermata home per usarla offline</p>
+      <button class="bp" onclick="installPWA()" style="font-size:11px;padding:6px 12px;white-space:nowrap">Installa</button>
+    </div>
+    <!-- SYNC RAPIDA — sempre visibile, anche su mobile dove la sidebar è nascosta -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="bp" onclick="cloudCaricaOra()" style="flex:1;font-size:12px;padding:9px">📂 Carica dal cloud</button>
+      <button class="bs" onclick="cloudSalvaOra()" style="flex:1;font-size:12px;padding:9px">☁️ Salva sul cloud</button>
+    </div>
+    <div id="oggi-content"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="pg-dash" class="pg active">
+    <div class="pt">Dashboard</div>
+    <div class="ps" id="ds-sub"></div>
+    <div class="dg" id="ds-kpi"></div>
+    <div class="sl">Cantieri in corso / in arrivo</div>
+    <div class="rl" id="ds-cant" style="margin-bottom:18px"></div>
+    <div class="sl">Prossimi interventi</div>
+    <div class="rl" id="ds-interventi"></div>
+  </div>
+
+  <!-- CANTIERI -->
+  <div id="pg-cantieri" class="pg">
+    <div class="pt">Cantieri</div>
+    <div class="ps">Tutti i cantieri pianificati e in corso</div>
+
+    <!-- FILTRI + AZIONI -->
+    <div style="display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <input class="ts" id="cant-search" placeholder="🔍 Cerca cantiere..." oninput="renderCantieri()" style="width:200px">
+      <select class="ts" id="cant-filter" onchange="renderCantieri()" style="width:150px">
+        <option value="">Tutti gli stati</option>
+        <option value="preventivo">📋 Preventivo</option>
+        <option value="in corso">In corso</option>
+        <option value="in arrivo">In arrivo</option>
+        <option value="concluso">Concluso</option>
+        <option value="da confermare">Da confermare</option>
+        <option value="perso">❌ Perso</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="cant-mostra-conclusi" onchange="renderCantieri()" style="accent-color:var(--teal)">
+        🗄 Mostra archivio (conclusi e persi)
+      </label>
+      <button class="bp" onclick="apriNuovoCantiere()" style="margin-left:auto">➕ Nuovo cantiere</button>
+    </div>
+
+    <!-- LISTA CANTIERI -->
+    <div id="cant-list"></div>
+
+    <!-- EXPORT PROGRAMMA LAVORI -->
+    <div class="fc" style="margin-top:20px">
+      <h3>📋 Export operativo</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Date, orari, squadre, attrezzature e materiali — senza alcun dato economico. Da condividere con i dipendenti.</p>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="bs" style="font-size:11px;padding:5px 10px" onclick="impostaPeriodoExport('exp','oggi')">Oggi</button>
+        <button class="bs" style="font-size:11px;padding:5px 10px" onclick="impostaPeriodoExport('exp','settimana')">Questa settimana</button>
+        <button class="bs" style="font-size:11px;padding:5px 10px" onclick="impostaPeriodoExport('exp','mese')">Questo mese</button>
+      </div>
+      <div class="fg">
+        <div><label>Da</label><input type="date" id="exp-from"></div>
+        <div><label>A</label><input type="date" id="exp-to"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-top:10px">
+        <input type="checkbox" id="exp-escludi-conclusi" checked style="accent-color:var(--teal)">
+        Escludi cantieri conclusi (li puoi includere all'occorrenza togliendo la spunta)
+      </label>
+      <div class="fa" style="margin-top:12px">
+        <button class="bp" onclick="esportaExcel(false)">📊 Excel operativo</button>
+        <button class="bs" onclick="esportaPDF(false,false)">📄 PDF vert. operativo</button>
+        <button class="bs" onclick="esportaPDF(true,false)">📄 PDF orizz. operativo</button>
+      </div>
+    </div>
+
+    <!-- Export economico rimosso: i dati economici (ricavo, costo, margine, prezzi fornitori)
+         sono ora gestiti esclusivamente dal Gestionale. Usare il Gestionale per report economici. -->
+  </div>
+
+  <!-- MODAL NUOVO/MODIFICA CANTIERE -->
+  <!-- MODAL MODIFICA SINGOLA PROPOSTA ROBERTO -->
+  <div class="mo" id="modal-edit-proposta">
+    <div class="md" style="max-width:440px">
+      <div class="mh"><h3>✏️ Modifica proposta</h3><button class="mc" onclick="closeModal('modal-edit-proposta')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px" id="ep-nome"></div>
+        <div style="font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-bottom:16px" id="ep-data"></div>
+        <div class="fg">
+          <div class="fs"><label>Cantiere</label>
+            <select id="ep-cantiere" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none"></select>
+          </div>
+          <div><label>Ora inizio</label><input type="time" id="ep-oraI"></div>
+          <div><label>Ora fine</label><input type="time" id="ep-oraF"></div>
+          <div class="fs"><label>Note</label><input type="text" id="ep-note" placeholder="Aggiunta nota..."></div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-edit-proposta')">Annulla</button>
+        <button class="bp" onclick="salvaModificaProposta()">💾 Salva modifica</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FINESTRA FORNITURA ATTREZZATURA -->
+  <!-- ══ MODALI MODULO RISORSE & DEPOSITI ══ -->
+  <div class="mo" id="modal-r2-risorsa" style="z-index:115">
+    <div class="md" style="max-width:460px">
+      <div class="mh"><h3 id="r2-risorsa-title">Nuova risorsa</h3><button class="mc" onclick="closeModal('modal-r2-risorsa')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div class="fg">
+          <div style="grid-column:1/-1"><label>Nome *</label><input id="r2r-nome" placeholder="Es. Palco Pilosio"></div>
+          <div><label>Categoria</label><input id="r2r-cat" placeholder="Es. Pedane/Palchi"></div>
+          <div><label>Unità</label><input id="r2r-unit" placeholder="pz / mq" value="pz"></div>
+          <div><label>Quantità totale *</label><input type="number" id="r2r-qty" placeholder="0" min="0"></div>
+        </div>
+        <div id="r2r-giacenze" style="margin-top:12px"></div>
+        <div id="r2r-note-riparto" style="font-size:11px;color:var(--text2);margin-top:6px"></div>
+      </div>
+      <div class="mf">
+        <button id="r2r-del" onclick="r2EliminaRisorsa()" style="display:none;background:none;border:1px solid rgba(232,84,84,.4);color:var(--red);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px">🗑 Elimina</button>
+        <div style="flex:1"></div>
+        <button class="bs" onclick="closeModal('modal-r2-risorsa')">Annulla</button>
+        <button class="bp" onclick="r2SalvaRisorsa()">💾 Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-r2-deposito" style="z-index:115">
+    <div class="md" style="max-width:440px">
+      <div class="mh"><h3>🏭 Depositi</h3><button class="mc" onclick="closeModal('modal-r2-deposito')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div id="r2-dep-list"></div>
+        <div style="border-top:1px solid var(--brd);margin-top:12px;padding-top:12px">
+          <div class="fg">
+            <div style="grid-column:1/-1"><label>Nuovo deposito</label><input id="r2-dep-nome" placeholder="Es. Deposito Marcianise"></div>
+          </div>
+          <button class="bp" onclick="r2AggiungiDeposito()" style="margin-top:8px;width:100%">➕ Aggiungi deposito</button>
+        </div>
+      </div>
+      <div class="mf"><div style="flex:1"></div><button class="bs" onclick="closeModal('modal-r2-deposito')">Chiudi</button></div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-r2-rientri" style="z-index:118">
+    <div class="md" style="max-width:500px">
+      <div class="mh"><h3>🔔 Verifica rientri risorse</h3><button class="mc" onclick="closeModal('modal-r2-rientri')">✕</button></div>
+      <div style="padding:4px 20px 8px">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Risorse il cui rientro previsto è passato. Conferma se sono tornate o indica una nuova data.</p>
+        <div id="r2-rientri-list"></div>
+      </div>
+      <div class="mf"><div style="flex:1"></div><button class="bs" onclick="closeModal('modal-r2-rientri')">Chiudi</button></div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-r2-mov" style="z-index:119">
+    <div class="md" style="max-width:460px">
+      <div class="mh"><h3 id="r2-mov-title">Movimento</h3><button class="mc" onclick="closeModal('modal-r2-mov')">✕</button></div>
+      <div style="padding:0 20px 18px" id="r2-mov-body"></div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-r2-alloc" style="z-index:118">
+    <div class="md" style="max-width:480px">
+      <div class="mh"><h3 id="r2-alloc-title">Nuova allocazione</h3><button class="mc" onclick="closeModal('modal-r2-alloc')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div class="fg">
+          <div style="grid-column:1/-1"><label>Risorsa *</label><select id="r2a-risorsa" onchange="r2AllocDisp()"></select></div>
+          <div><label>Deposito di uscita *</label><select id="r2a-deposito" onchange="r2AllocDisp()"></select></div>
+          <div><label>Quantità *</label><input type="number" id="r2a-qty" min="1" oninput="r2AllocDisp()"></div>
+          <div><label>Cantiere</label><select id="r2a-cantiere"></select></div>
+          <div></div>
+          <div><label>Data uscita *</label><input type="date" id="r2a-uscita"></div>
+          <div><label>Data rientro</label><input type="date" id="r2a-rientro"></div>
+        </div>
+        <div id="r2a-disp-info" style="font-size:12px;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--navy)"></div>
+      </div>
+      <div class="mf">
+        <button id="r2a-del" onclick="r2EliminaAlloc()" style="display:none;background:none;border:1px solid rgba(232,84,84,.4);color:var(--red);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px">🗑 Elimina</button>
+        <div style="flex:1"></div>
+        <button class="bs" onclick="closeModal('modal-r2-alloc')">Annulla</button>
+        <button class="bp" onclick="r2SalvaAlloc()">💾 Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-date-attr" style="z-index:120">
+    <div class="md" style="max-width:400px">
+      <div class="mh"><h3>📅 Finestra fornitura</h3><button class="mc" onclick="closeModal('modal-date-attr')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:2px" id="ad-nome"></div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px" id="ad-qty"></div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:16px" id="ad-default-info"></div>
+        <div class="fg">
+          <div><label>Entrata</label><input type="date" id="ad-inizio"></div>
+          <div><label>Uscita</label><input type="date" id="ad-fine"></div>
+        </div>
+        <button onclick="ripristinaDateDefaultAttr()" style="width:100%;margin-top:10px;background:none;border:1px dashed var(--brd);border-radius:8px;padding:8px;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Syne',sans-serif">↺ Usa le date del cantiere</button>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-date-attr')">Annulla</button>
+        <button class="bp" onclick="salvaDateAttr()">💾 Salva finestra</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-cantiere">
+    <div class="md" style="max-width:700px">
+      <div class="mh">
+        <h3 id="modal-cant-title">Nuovo cantiere</h3>
+        <button class="mc" onclick="closeModal('modal-cantiere')">✕</button>
+      </div>
+      <div class="mb">
+        <!-- DATI BASE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>Dati generali</h3>
+          <div class="fg">
+            <div><label>Nome cantiere *</label><input id="mc-nome" placeholder="es. Belvedere San Leucio"></div>
+            <div>
+              <label>Cliente</label>
+              <div style="display:flex;gap:6px">
+                <select id="mc-cliente-id" onchange="aggiornaCampiDaCliente()" style="flex:1;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;outline:none">
+                  <option value="">— Seleziona cliente o inserisci manuale —</option>
+                </select>
+                <button type="button" onclick="apriModalCliente()" title="Nuovo cliente" style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:var(--r2);padding:9px 11px;color:var(--teal);font-size:13px;cursor:pointer;white-space:nowrap">+ 👥</button>
+              </div>
+            </div>
+            <div><label>Committente</label><input id="mc-committente" placeholder="es. Comune di Caserta"></div>
+            <div><label>Luogo</label><input id="mc-luogo" placeholder="es. Via Roma 1, Caserta"></div>
+            <div><label>Tipo cantiere</label>
+              <select id="mc-tipo" onchange="toggleLungoPeriodo()">
+                <option value="standard">🔨 Standard (attività giornaliera)</option>
+                <option value="lungo_periodo">📦 Lungo periodo (deposito attrezzature)</option>
+              </select>
+            </div>
+            <div id="mc-ritiro-wrap" style="display:none"><label>📅 Data ritiro attrezzature</label><input type="date" id="mc-ritiro"></div>
+            <div><label>Stato</label>
+              <select id="mc-stato">
+                <option value="preventivo">📋 Preventivo (da confermare col cliente)</option>
+                <option value="da confermare">Da confermare</option>
+                <option value="in arrivo">In arrivo</option>
+                <option value="in corso">In corso</option>
+                <option value="concluso">Concluso</option>
+                <option value="perso">❌ Perso / Rifiutato</option>
+              </select>
+            </div>
+            <div><label>Pianificazione nel Gantt</label>
+              <select id="mc-tipocant">
+                <option value="">🤖 Automatico (oltre 21 giorni = continuativo)</option>
+                <option value="evento">🎪 Evento (barra piena)</option>
+                <option value="continuativo">🔁 Continuativo (sfondo sottile)</option>
+              </select>
+            </div>
+            <div><label>Data inizio</label><input type="date" id="mc-inizio"></div>
+            <div><label>Data fine</label><input type="date" id="mc-fine"></div>
+            <!-- Ricavo e Costo rimossi: gestiti esclusivamente nel Gestionale (separazione economica) -->
+          </div>
+          <div style="margin-top:10px">
+            <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note</label>
+            <textarea id="mc-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:60px;outline:none;resize:vertical"></textarea>
+          </div>
+        </div>
+
+        <!-- NOTIFICA SCADENZA -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🔔 Notifica scadenza</h3>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="mc-notifica" onchange="toggleNotificaGiorni()" style="accent-color:var(--teal);width:16px;height:16px">
+              Avvisami prima della fine del cantiere
+            </label>
+            <div id="mc-notifica-giorni-wrap" style="display:none;align-items:center;gap:7px">
+              <select id="mc-notifica-giorni" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:5px 8px;outline:none">
+                <option value="1">1 giorno prima</option>
+                <option value="2" selected>2 giorni prima</option>
+                <option value="3">3 giorni prima</option>
+                <option value="5">5 giorni prima</option>
+                <option value="7">7 giorni prima</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PERSONALE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>👷 Personale assegnato</h3>
+          <div id="mc-personale-list" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-personale-input" placeholder="Nome dipendente" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:140px">
+            <button class="bs" onclick="aggiungiPersonale()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- RISORSE ALLOCATE (nuovo sistema: tabella allocazioni con date) -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>📐 Risorse allocate</h3>
+          <p style="font-size:11px;color:var(--text2);margin-bottom:8px">Risorse scaricate dal deposito a questo cantiere, con periodo di uscita/rientro. La disponibilità si calcola per data.</p>
+          <div id="mc-alloc-list" style="margin-bottom:10px"></div>
+          <button class="bs" onclick="mcNuovaAlloc()" style="font-size:12px;padding:6px 12px">📤 Alloca risorsa</button>
+        </div>
+
+        <!-- SERVIZI ESTERNI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🏢 Servizi esterni / Forniture</h3>
+          <p style="font-size:11px;color:var(--text2);margin-bottom:8px">Fornitori e servizi pianificati — i costi vengono gestiti nel Gestionale</p>
+          <div id="mc-serv-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-serv-fornitore" placeholder="Fornitore" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:100px">
+            <input id="mc-serv-desc" placeholder="Descrizione servizio" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:120px">
+            <!-- Prezzo rimosso: gestito esclusivamente nel Gestionale -->
+            <button class="bs" onclick="aggiungiServ()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- MATERIALI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>📦 Materiali di consumo</h3>
+          <div id="mc-mat-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mc-mat-nome" placeholder="Materiale" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:120px">
+            <input id="mc-mat-qty" placeholder="Qtà + unità (es. 20 mt)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:100px">
+            <button class="bs" onclick="aggiungiMat()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- MEZZI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🚛 Mezzi impiegati</h3>
+          <div id="mc-mezzi-list" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <select id="mc-mezzo-select" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:160px">
+              <option value="">— Seleziona dal parco mezzi —</option>
+            </select>
+            <input id="mc-mezzo-input" placeholder="O scrivi nome mezzo libero" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:120px">
+            <button class="bs" onclick="aggiungiMezzo()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+          <div style="margin-top:6px"><a onclick="nav('mezzi-db')" style="font-size:11px;color:var(--teal);cursor:pointer;text-decoration:underline">⚙️ Gestisci parco mezzi</a></div>
+        </div>
+
+        <!-- INTERVENTI -->
+        <div class="fc">
+          <h3>🔨 Interventi programmati</h3>
+          <div id="mc-interv-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">
+            <input type="date" id="mc-interv-data" onchange="aggiornaConflittiIntervSquadra()" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none">
+            <input type="time" id="mc-interv-ora-inizio" value="08:00" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 8px;outline:none;width:90px">
+            <input type="time" id="mc-interv-ora-fine" value="18:00" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 8px;outline:none;width:90px">
+            <input id="mc-interv-desc" placeholder="Descrizione (es. Montaggio palco)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:140px">
+          </div>
+          <div style="margin-bottom:8px">
+            <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Squadra di questo giorno</label>
+            <div id="mc-interv-squadra-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px"></div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <input id="mc-interv-squadra-input" placeholder="Nome dipendente" oninput="aggiornaConflittiIntervSquadra()" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiIntervSquadraTag();}" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:140px">
+              <button class="bs" onclick="aggiungiIntervSquadraTag()" style="font-size:12px;padding:6px 12px">+ Persona</button>
+            </div>
+            <div id="mc-interv-squadra-conflitti" style="font-size:11px;color:var(--gold);margin-top:6px"></div>
+          </div>
+          <button id="mc-interv-add-btn" class="bp" onclick="aggiungiInterv()" style="font-size:12px;padding:7px 14px">💾 Aggiungi intervento</button>
+          <button onclick="annullaModificaInterv()" style="font-size:12px;padding:7px 14px;background:none;border:1px solid var(--brd);border-radius:var(--r2);color:var(--text2);cursor:pointer;font-family:'Syne',sans-serif;display:none" id="mc-interv-annulla-btn">✕ Annulla</button>
+        </div>
+
+        <!-- CARBURANTE (dalla riconciliazione DKV) -->
+        <div class="fc">
+          <h3>⛽ Carburante</h3>
+          <div id="mc-carburante"><div style="color:var(--text2);font-size:12px;font-style:italic">Disponibile dopo il salvataggio del cantiere</div></div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bd" id="mc-btn-elimina" onclick="eliminaCantiere()" style="margin-right:auto">🗑️ Elimina</button>
+        <button class="bs" onclick="closeModal('modal-cantiere')">Annulla</button>
+        <button class="bp" onclick="salvaCantiere()">💾 Salva cantiere</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALENDARIO (placeholder) -->
+  <div id="pg-calendario" class="pg">
+    <div class="pt">Calendario & Gantt</div>
+
+    <!-- SELETTORE PERIODO CENTRALE -->
+    <div class="fc" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:700">Periodo</span>
+        <input type="date" id="cal-from" onchange="syncPeriodo('from')" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+        <span style="color:var(--text2)">→</span>
+        <input type="date" id="cal-to" onchange="syncPeriodo('to')" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+        <div style="display:flex;gap:5px;margin-left:4px;flex-wrap:wrap">
+          <button class="bs" onclick="setPreset('1m')" style="font-size:11px;padding:4px 10px">1 mese</button>
+          <button class="bs" onclick="setPreset('3m')" style="font-size:11px;padding:4px 10px">3 mesi</button>
+          <button class="bs" onclick="setPreset('6m')" style="font-size:11px;padding:4px 10px">6 mesi</button>
+          <button class="bs" onclick="setPreset('1y')" style="font-size:11px;padding:4px 10px">1 anno</button>
+        </div>
+        <div style="display:flex;gap:5px;margin-left:auto;flex-wrap:wrap">
+          <button class="bp" onclick="esportaExcelDaCal()" style="font-size:11px;padding:5px 12px">📊 Excel</button>
+          <button class="bs" onclick="esportaPDFDaCal(false)" style="font-size:11px;padding:5px 12px">📄 PDF vert.</button>
+          <button class="bs" onclick="esportaPDFDaCal(true)" style="font-size:11px;padding:5px 12px">📄 PDF orizz.</button>
+        </div>
+      </div>
+      <!-- BARRA VISUALE PERIODO -->
+      <div id="cal-timeline-bar" style="margin-top:12px;height:6px;background:var(--navy);border-radius:3px;position:relative;overflow:hidden">
+        <div id="cal-timeline-fill" style="position:absolute;height:100%;background:var(--teal);border-radius:3px;transition:all .3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:3px">
+        <span id="cal-bar-label-l" style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace"></span>
+        <span id="cal-bar-label-r" style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace"></span>
+      </div>
+    </div>
+
+    <!-- TOGGLE VISTA -->
+    <div style="display:flex;gap:7px;margin-bottom:14px">
+      <button id="btn-gantt" class="bp" onclick="setVistaCalendario('gantt')" style="font-size:12px;padding:6px 16px">📊 Gantt</button>
+      <button id="btn-mensile" class="bs" onclick="setVistaCalendario('mensile')" style="font-size:12px;padding:6px 16px">📅 Mensile</button>
+    </div>
+
+    <!-- VISTA GANTT -->
+    <div id="vista-gantt" style="overflow-x:auto">
+      <div id="gantt-wrap"></div>
+    </div>
+
+    <!-- VISTA MENSILE -->
+    <div id="vista-mensile" style="display:none">
+      <div id="mensile-wrap"></div>
+    </div>
+  </div>
+
+  <!-- IMPORTA DA CALENDAR -->
+  <div id="pg-import-cal" class="pg">
+    <div class="pt">Importa da Calendar</div>
+    <div class="ps">Leggi gli eventi dal calendario condiviso e trasformali in cantieri</div>
+
+    <div class="gcal-login-box" id="gcal-login-box">
+      <div class="gcal-status"><span class="gcal-status-dot" id="gcal-dot"></span><span id="gcal-status-text">Non collegato a Google Calendar</span></div>
+      <p>Accedi con il tuo account Google per leggere gli eventi dal calendario condiviso col Gestionale 81|00. L'accesso è in sola lettura: il Planning non modifica né cancella nulla sul tuo Calendar.</p>
+      <button class="bp" id="gcal-btn" onclick="gcalLogin()">🔑 Accedi con Google</button>
+    </div>
+
+    <div class="fc" id="gcal-range-box" style="display:none">
+      <h3>Periodo da importare</h3>
+      <div class="fg">
+        <div><label>Da</label><input type="date" id="gcal-from"></div>
+        <div><label>A</label><input type="date" id="gcal-to"></div>
+      </div>
+      <div class="fa">
+        <button class="bp" onclick="gcalCaricaEventi()">🔄 Carica eventi</button>
+        <button class="bs" onclick="gcalLogout()">Disconnetti</button>
+      </div>
+    </div>
+
+    <div id="gcal-eventi-wrap" style="display:none">
+      <div class="sl">Eventi trovati</div>
+      <div id="gcal-eventi-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ANTEPRIMA/MODIFICA EVENTO -> CANTIERE -->
+  <div class="mo" id="modal-ev-preview">
+    <div class="md">
+      <div class="mh"><h3>Crea cantiere da evento</h3><button class="mc" onclick="closeModal('modal-ev-preview')">✕</button></div>
+      <div class="mb">
+        <div class="fg">
+          <div><label>Nome cantiere</label><input id="evp-nome"></div>
+          <div><label>Committente</label><input id="evp-committente"></div>
+          <div><label>Luogo</label><input id="evp-luogo"></div>
+          <div><label>Inizio</label><input type="date" id="evp-inizio"></div>
+          <div><label>Fine</label><input type="date" id="evp-fine"></div>
+        </div>
+        <div style="margin-top:10px"><label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note (dalla descrizione evento)</label><textarea id="evp-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:80px;outline:none"></textarea></div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-ev-preview')">Annulla</button>
+        <button class="bp" onclick="confermaCreaCantiereDaEvento()">💾 Crea cantiere</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERSONALE -->
+  <div id="pg-personale" class="pg">
+    <div class="pt">Personale</div>
+    <div class="ps">Anagrafica dipendenti, scadenze e formazione</div>
+    <div style="display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <input class="ts" id="pers-search" placeholder="🔍 Cerca dipendente..." oninput="renderPersonale()" style="width:200px">
+      <select class="ts" id="pers-filter-squadra" onchange="renderPersonale()" style="width:160px">
+        <option value="">Tutte le squadre</option>
+        <option value="Squadra Roberto">Squadra Roberto</option>
+        <option value="Squadra Renato">Squadra Renato</option>
+        <option value="Flessibile">Flessibile</option>
+        <option value="Esterno">Esterno</option>
+      </select>
+      <select class="ts" id="pers-filter-scad" onchange="renderPersonale()" style="width:170px">
+        <option value="">Tutti</option>
+        <option value="30">⚠️ Scadenze entro 30gg</option>
+        <option value="60">⚠️ Scadenze entro 60gg</option>
+        <option value="90">⚠️ Scadenze entro 90gg</option>
+      </select>
+      <button class="bp" onclick="apriNuovoDipendente()" style="margin-left:auto">➕ Nuovo dipendente</button>
+      <button class="bs" onclick="document.getElementById('hr-import-file').click()" style="font-size:12px;padding:7px 14px">📥 Importa Excel</button>
+      <input type="file" id="hr-import-file" accept=".xlsx,.xls" style="display:none" onchange="importaPersonaleExcel(this)">
+    </div>
+    <!-- ALERT SCADENZE -->
+    <div id="pers-alert-scad" style="margin-bottom:14px"></div>
+    <!-- LISTA -->
+    <div id="pers-list"></div>
+  </div>
+
+  <!-- MODAL SCHEDA DIPENDENTE -->
+  <div class="mo" id="modal-dipendente">
+    <div class="md" style="max-width:680px">
+      <div class="mh">
+        <h3 id="modal-dip-title">Nuovo dipendente</h3>
+        <button class="mc" onclick="closeModal('modal-dipendente')">✕</button>
+      </div>
+      <div class="mb">
+
+        <!-- ANAGRAFICA -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>👤 Anagrafica</h3>
+          <div class="fg">
+            <div><label>Nome *</label><input id="dp-nome" placeholder="Nome"></div>
+            <div><label>Cognome *</label><input id="dp-cognome" placeholder="Cognome"></div>
+            <div><label>Data di nascita</label><input type="date" id="dp-nascita"></div>
+            <div><label>Codice fiscale</label><input id="dp-cf" placeholder="RSSMRA80A01F839X" style="text-transform:uppercase"></div>
+            <div><label>Telefono</label><input id="dp-tel" placeholder="+39 333 1234567" type="tel"></div>
+            <div><label>Email</label><input id="dp-email" placeholder="nome@email.it" type="email"></div>
+          </div>
+          <div style="margin-top:10px"><label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Indirizzo</label>
+            <input id="dp-indirizzo" placeholder="Via, Città, CAP" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+          </div>
+        </div>
+
+        <!-- RUOLO E CONTRATTO -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>💼 Ruolo e contratto</h3>
+          <div class="fg">
+            <div><label>Squadra</label>
+              <select id="dp-squadra">
+                <option value="">—</option>
+                <option value="Squadra Roberto">Squadra Roberto</option>
+                <option value="Squadra Renato">Squadra Renato</option>
+                <option value="Flessibile">Flessibile</option>
+                <option value="Esterno">Esterno</option>
+              </select>
+            </div>
+            <div><label>Ruolo</label><input id="dp-ruolo" placeholder="Es. Operaio, Autista, Capitano"></div>
+            <div><label>Tipo contratto</label>
+              <select id="dp-contratto-tipo">
+                <option value="">—</option>
+                <option value="Dipendente a tempo indeterminato">Tempo indeterminato</option>
+                <option value="Dipendente a tempo determinato">Tempo determinato</option>
+                <option value="Collaboratore">Collaboratore</option>
+                <option value="Occasionale">Occasionale</option>
+                <option value="Partita IVA">Partita IVA</option>
+              </select>
+            </div>
+            <div><label>Data assunzione</label><input type="date" id="dp-assunzione"></div>
+            <div><label>Scadenza contratto</label><input type="date" id="dp-contratto-scad"></div>
+            <div><label>Stato</label>
+              <select id="dp-stato">
+                <option value="attivo">Attivo</option>
+                <option value="in ferie">In ferie</option>
+                <option value="malattia">Malattia</option>
+                <option value="inattivo">Inattivo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PATENTI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🚗 Patenti e abilitazioni</h3>
+          <div id="dp-patenti-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <select id="dp-pat-cat" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none">
+              <option value="B">B</option><option value="C">C</option><option value="C+E">C+E</option>
+              <option value="D">D</option><option value="CQC">CQC Merci</option><option value="CQC-P">CQC Persone</option>
+              <option value="ADR">ADR</option><option value="Carrello elevatore">Carrello elevatore</option>
+              <option value="Piattaforma aerea">Piattaforma aerea</option><option value="Gruista">Gruista</option>
+              <option value="Altra">Altra abilitazione</option>
+            </select>
+            <input id="dp-pat-num" placeholder="N° patente (opz.)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:140px">
+            <input type="date" id="dp-pat-scad" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <button class="bs" onclick="aggiungiPatente()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- VISITE MEDICHE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🏥 Visite mediche</h3>
+          <div id="dp-visite-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="dp-vis-tipo" placeholder="Tipo visita (es. Periodica, Pre-assunzione)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:160px">
+            <input type="date" id="dp-vis-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <input type="date" id="dp-vis-scad" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <select id="dp-vis-esito" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none">
+              <option value="idoneo">Idoneo</option>
+              <option value="idoneo con prescrizioni">Idoneo con prescrizioni</option>
+              <option value="non idoneo">Non idoneo</option>
+            </select>
+            <button class="bs" onclick="aggiungiVisita()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+          <div id="dp-vis-notifica-wrap" style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="dp-vis-notifica" style="accent-color:var(--teal)">
+              Notifica scadenza visite con
+            </label>
+            <select id="dp-vis-notifica-giorni" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:11px;padding:4px 8px;outline:none">
+              <option value="30">30 giorni prima</option>
+              <option value="60" selected>60 giorni prima</option>
+              <option value="90">90 giorni prima</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- CORSI FORMAZIONE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>📚 Corsi di formazione</h3>
+          <div id="dp-corsi-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="dp-cors-nome" placeholder="Nome corso (es. Antincendio, Primo soccorso)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:160px">
+            <input type="date" id="dp-cors-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <input type="date" id="dp-cors-scad" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <button class="bs" onclick="aggiungiCorso()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- NOTE -->
+        <div class="fc">
+          <h3>📝 Note operative</h3>
+          <textarea id="dp-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:70px;outline:none;resize:vertical" placeholder="Note, competenze particolari, attrezzature preferite, ecc."></textarea>
+        </div>
+
+      </div>
+      <div class="mf">
+        <button class="bd" id="dp-btn-elimina" onclick="eliminaDipendente()" style="margin-right:auto">🗑️ Elimina</button>
+        <button class="bs" onclick="closeModal('modal-dipendente')">Annulla</button>
+        <button class="bp" onclick="salvaDipendente()">💾 Salva scheda</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MEZZI D'OPERA -->
+  <div id="pg-mezzi-db" class="pg">
+    <div class="pt">Mezzi d'opera</div>
+    <div class="ps">Anagrafica veicoli e attrezzature — km, ore, manutenzioni, scadenze</div>
+    <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <input class="ts" id="mezzi-search" placeholder="🔍 Cerca mezzo..." oninput="renderMezziDB()" style="width:200px">
+      <select class="ts" id="mezzi-filter-cat" onchange="renderMezziDB()" style="width:160px">
+        <option value="">Tutte le categorie</option>
+        <option value="Camion">Camion</option>
+        <option value="Furgone">Furgone</option>
+        <option value="Muletto">Muletto</option>
+        <option value="Gruppo elettrogeno">Gruppo elettrogeno</option>
+        <option value="Rampa elevatrice">Rampa elevatrice</option>
+        <option value="Altro">Altro</option>
+      </select>
+      <select class="ts" id="mezzi-filter-stato" onchange="renderMezziDB()" style="width:160px">
+        <option value="">Tutti gli stati</option>
+        <option value="disponibile">Disponibile</option>
+        <option value="in uso">In uso</option>
+        <option value="in manutenzione">In manutenzione</option>
+        <option value="fuori servizio">Fuori servizio</option>
+      </select>
+      <button class="bp" onclick="apriNuovoMezzo()" style="margin-left:auto">➕ Aggiungi mezzo</button>
+    </div>
+    <div id="mezzi-alert-scad" style="margin-bottom:14px"></div>
+    <div id="mezzi-db-list"></div>
+  </div>
+
+  <!-- MODAL SCHEDA MEZZO AVANZATA -->
+  <div class="mo" id="modal-mezzo-db">
+    <div class="md" style="max-width:680px">
+      <div class="mh">
+        <h3 id="modal-mezzo-title">Nuovo mezzo</h3>
+        <button class="mc" onclick="closeModal('modal-mezzo-db')">✕</button>
+      </div>
+      <div class="mb">
+
+        <!-- DATI BASE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🚛 Anagrafica mezzo</h3>
+          <div class="fg">
+            <div><label>Nome / Modello *</label><input id="mz-nome" placeholder="Es. Iveco Daily 35C15"></div>
+            <div><label>Categoria</label>
+              <select id="mz-cat">
+                <option value="Camion">Camion</option>
+                <option value="Furgone">Furgone</option>
+                <option value="Muletto">Muletto</option>
+                <option value="Gruppo elettrogeno">Gruppo elettrogeno</option>
+                <option value="Rampa elevatrice">Rampa elevatrice</option>
+                <option value="Altro">Altro</option>
+              </select>
+            </div>
+            <div><label>Targa</label><input id="mz-targa" placeholder="Es. AB123CD" style="text-transform:uppercase"></div>
+            <div><label>Anno immatricolazione</label><input type="number" id="mz-anno" placeholder="Es. 2019" min="1980" max="2030"></div>
+            <div><label>Stato</label>
+              <select id="mz-stato">
+                <option value="disponibile">Disponibile</option>
+                <option value="in uso">In uso</option>
+                <option value="in manutenzione">In manutenzione</option>
+                <option value="fuori servizio">Fuori servizio</option>
+              </select>
+            </div>
+            <div><label>Proprietà</label>
+              <select id="mz-proprieta">
+                <option value="proprio">Proprio</option>
+                <option value="noleggio">Noleggio</option>
+                <option value="leasing">Leasing</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:10px"><label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note</label>
+            <textarea id="mz-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:50px;outline:none;resize:vertical" placeholder="Es. Portata max 3.5t, patente C richiesta"></textarea>
+          </div>
+        </div>
+
+        <!-- KM E ORE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>📊 Contachilometri e ore lavoro</h3>
+          <div class="fg">
+            <div><label>Km attuali</label><input type="number" id="mz-km" placeholder="Es. 145000"></div>
+            <div><label>Ore lavoro attuali</label><input type="number" id="mz-ore" placeholder="Es. 2340"></div>
+            <div><label>Ultimo aggiornamento</label><input type="date" id="mz-km-data"></div>
+          </div>
+          <div style="margin-top:10px">
+            <div class="sl" style="margin-bottom:8px">Storico aggiornamenti mensili</div>
+            <div id="mz-km-storico" style="margin-bottom:8px"></div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <input type="date" id="mz-km-log-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+              <input type="number" id="mz-km-log-km" placeholder="Km lettura" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:110px">
+              <input type="number" id="mz-km-log-ore" placeholder="Ore lettura" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:110px">
+              <button class="bs" onclick="aggiungiKmLog()" style="font-size:12px;padding:6px 12px">+ Registra</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCADENZE DOCUMENTI -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>📋 Scadenze documenti</h3>
+          <div class="fg">
+            <div><label>Revisione (data scad.)</label><input type="date" id="mz-rev-scad"></div>
+            <div><label>Assicurazione (data scad.)</label><input type="date" id="mz-ass-scad"></div>
+            <div><label>Bollo (data scad.)</label><input type="date" id="mz-bollo-scad"></div>
+            <div><label>Tachigrafo (data scad.)</label><input type="date" id="mz-tach-scad"></div>
+          </div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="mz-notifica-doc" style="accent-color:var(--teal)">
+              Notifica scadenze documenti
+            </label>
+            <select id="mz-notifica-doc-giorni" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:11px;padding:4px 8px;outline:none">
+              <option value="15">15 giorni prima</option>
+              <option value="30" selected>30 giorni prima</option>
+              <option value="60">60 giorni prima</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- MANUTENZIONI PROGRAMMATE -->
+        <div class="fc" style="margin-bottom:14px">
+          <h3>🔧 Manutenzioni programmate</h3>
+          <p style="font-size:11px;color:var(--text2);margin-bottom:10px">Imposta quando eseguire la prossima manutenzione (a km, a ore o a data fissa). Riceverai una notifica quando il mezzo si avvicina alla soglia.</p>
+          <div id="mz-manut-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input id="mz-man-tipo" placeholder="Tipo (es. Tagliando, Cinghia distribuzione)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:160px">
+            <input type="number" id="mz-man-km" placeholder="A km (es. 160000)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:130px">
+            <input type="number" id="mz-man-ore" placeholder="A ore (es. 3000)" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:120px">
+            <input type="date" id="mz-man-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <button class="bs" onclick="aggiungiManutProgrammata()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+        <!-- STORICO MANUTENZIONI ESEGUITE -->
+        <div class="fc">
+          <h3>📂 Storico interventi eseguiti</h3>
+          <div id="mz-storico-man-list" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <input type="date" id="mz-sman-data" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;outline:none">
+            <input id="mz-sman-tipo" placeholder="Tipo intervento" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:2;min-width:140px">
+            <input id="mz-sman-officina" placeholder="Officina / Fornitore" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;flex:1;min-width:100px">
+            <input type="number" id="mz-sman-costo" placeholder="€" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:70px">
+            <button class="bs" onclick="aggiungiStoricoManut()" style="font-size:12px;padding:6px 12px">+ Aggiungi</button>
+          </div>
+        </div>
+
+      </div>
+      <div class="mf">
+        <button class="bd" id="mz-btn-elimina" onclick="eliminaMezzo()" style="margin-right:auto">🗑️ Elimina</button>
+        <button class="bs" onclick="closeModal('modal-mezzo-db')">Annulla</button>
+        <button class="bp" onclick="salvaMezzo()">💾 Salva mezzo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONITOR RISORSE (placeholder) -->
+  <!-- ══════════════════════════════════════════════════════════
+       MAGAZZINO / DEPOSITO & STOCCAGGIO
+       ══════════════════════════════════════════════════════════ -->
+  <div id="pg-magazzino" class="pg">
+    <div class="pt">📦 Magazzino</div>
+    <div class="ps">Deposito · Stoccaggio clienti · Movimenti attrezzature</div>
+
+    <!-- KPI disponibilità rapida -->
+    <div class="sg" id="mag-kpi" style="margin-bottom:18px"></div>
+
+    <!-- Alert: cantieri chiusi con materiali ancora fuori -->
+    <div id="mag-alert" style="margin-bottom:14px"></div>
+
+    <!-- Tab -->
+    <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap">
+      <button id="mtab-disp" onclick="magTab('disp')" class="bp" style="font-size:12px;padding:7px 16px">🗺 Disponibilità</button>
+      <button id="mtab-cat" onclick="magTab('cat')" class="bs" style="font-size:12px;padding:7px 16px">📋 Catalogo</button>
+      <button id="mtab-mov" onclick="magTab('mov')" class="bs" style="font-size:12px;padding:7px 16px">📜 Storico movimenti</button>
+      <button id="mtab-dep" onclick="magTab('dep')" class="bs" style="font-size:12px;padding:7px 16px">🏠 Ubicazioni</button>
+      <button onclick="apriModalMov()" class="bp" style="margin-left:auto;background:var(--gold);color:var(--navy);font-size:12px;padding:7px 16px">➕ Nuovo movimento</button>
+    </div>
+
+    <!-- Vista Disponibilità -->
+    <div id="mag-view-disp">
+      <div class="fc" style="padding:14px">
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <input type="text" id="mag-search" placeholder="🔍 Cerca articolo..." oninput="renderMagDisp()" class="ts" style="width:220px">
+          <select id="mag-filter-ub" onchange="renderMagDisp()" style="background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:12px;padding:6px 10px;outline:none">
+            <option value="">Tutte le ubicazioni</option>
+          </select>
+        </div>
+        <div id="mag-disp-body"></div>
+      </div>
+    </div>
+
+    <!-- Vista Catalogo -->
+    <div id="mag-view-cat" style="display:none">
+      <div class="fc" style="padding:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--brd)">
+          <h3>Catalogo Articoli</h3>
+          <button onclick="apriModalArticolo()" class="bp" style="font-size:12px;padding:6px 14px">+ Articolo</button>
+        </div>
+        <div id="mag-cat-body" style="padding:14px"></div>
+      </div>
+    </div>
+
+    <!-- Vista Storico Movimenti -->
+    <div id="mag-view-mov" style="display:none">
+      <div class="fc" style="padding:0">
+        <div style="display:flex;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap;align-items:center">
+          <h3>Storico movimenti</h3>
+          <select id="mag-mov-filter" onchange="renderMagMov()" style="background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-size:12px;padding:6px 10px;outline:none;margin-left:auto">
+            <option value="">Tutti i tipi</option>
+            <option value="USCITA">Uscita cantiere</option>
+            <option value="RIENTRO">Rientro deposito</option>
+            <option value="STOCCAGGIO">Stoccaggio cliente</option>
+            <option value="PRELIEVO">Prelievo da cliente</option>
+            <option value="TRASFERIMENTO">Trasferimento</option>
+            <option value="RETTIFICA">Rettifica</option>
+          </select>
+        </div>
+        <div id="mag-mov-body" style="padding:14px"></div>
+      </div>
+    </div>
+
+    <!-- Vista Ubicazioni/Depositi -->
+    <div id="mag-view-dep" style="display:none">
+      <div class="fc" style="padding:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--brd)">
+          <h3>Ubicazioni</h3>
+          <button onclick="apriModalDeposito()" class="bp" style="font-size:12px;padding:6px 14px">+ Ubicazione</button>
+        </div>
+        <div id="mag-dep-body" style="padding:14px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL NUOVO MOVIMENTO ── -->
+  <div class="mo" id="modal-mov">
+    <div class="md" style="max-width:560px">
+      <div class="mh"><h3>📦 Nuovo movimento</h3><button class="mc" onclick="closeModal('modal-mov')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div class="fg">
+          <div><label>Tipo movimento</label>
+            <select id="mov-tipo" onchange="aggiornaCampiMov()" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+              <option value="USCITA">📤 Uscita → Cantiere</option>
+              <option value="RIENTRO">📥 Rientro → Deposito</option>
+              <option value="STOCCAGGIO">📦 Stoccaggio → Cliente</option>
+              <option value="PRELIEVO">🔄 Prelievo da Cliente</option>
+              <option value="TRASFERIMENTO">↔️ Trasferimento diretto</option>
+              <option value="RETTIFICA">⚠️ Rettifica inventario</option>
+            </select>
+          </div>
+          <div><label>Data</label><input type="date" id="mov-data"></div>
+          <div class="fs"><label>Articolo</label>
+            <select id="mov-articolo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none"></select>
+          </div>
+          <div><label>Quantità</label><input type="number" id="mov-qty" min="1" placeholder="0"></div>
+          <div id="mov-from-wrap" class="fs"><label id="mov-from-lbl">Da (ubicazione)</label>
+            <select id="mov-from" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none"></select>
+          </div>
+          <div id="mov-to-wrap" class="fs">
+            <label id="mov-to-lbl">A (destinazione)</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="mov-to" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;flex:1;outline:none"></select>
+              <button onclick="apriNuovoClienteVeloce()" title="Crea nuovo cliente/deposito"
+                style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:8px;padding:9px 12px;color:var(--teal);font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0">+ 🏠</button>
+            </div>
+          </div>
+          <div class="fs"><label>Note</label><input type="text" id="mov-note" placeholder="Note sul movimento..."></div>
+        </div>
+        <div id="mov-avviso" style="display:none;background:rgba(232,184,75,.1);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--gold)"></div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-mov')">Annulla</button>
+        <button class="bp" onclick="salvaMovimento()">💾 Registra</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL NUOVO ARTICOLO ── -->
+  <div class="mo" id="modal-articolo">
+    <div class="md" style="max-width:440px">
+      <div class="mh"><h3 id="art-modal-title">📋 Nuovo articolo</h3><button class="mc" onclick="closeModal('modal-articolo')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <input type="hidden" id="art-id">
+        <div class="fg">
+          <div class="fs"><label>Nome articolo *</label><input type="text" id="art-nome" placeholder="es. Transenna tipo H"></div>
+          <div><label>Categoria</label>
+            <select id="art-categoria" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+              <option>Recinzioni</option><option>Palchi</option><option>Audio</option><option>Luci</option>
+              <option>Generatori</option><option>Sedie/Sedute</option><option>Tendaggi</option>
+              <option>Cablaggi</option><option>Trasporto</option><option>Altro</option>
+            </select>
+          </div>
+          <div><label>Quantità totale</label><input type="number" id="art-qty" min="0" placeholder="0"></div>
+          <div><label>Unità misura</label>
+            <select id="art-unita" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+              <option value="pz">pz (pezzi)</option><option value="m">m (metri)</option>
+              <option value="m2">m² (metri quadri)</option><option value="set">set</option>
+              <option value="kg">kg</option><option value="rotolo">rotolo</option><option value="altro">altro</option>
+            </select>
+          </div>
+          <div class="fs"><label>Descrizione / Note</label><input type="text" id="art-note" placeholder="Caratteristiche, dimensioni..."></div>
+          <div class="fs"><label>Collega a Monitor Risorse</label>
+            <select id="art-risorsa-link" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+              <option value="">⚡ Crea automaticamente risorsa nel Monitor</option>
+            </select>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">Collegando l'articolo, il Monitor mostrerà la disponibilità reale dal magazzino</div>
+          </div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-articolo')">Annulla</button>
+        <button class="bp" onclick="salvaArticolo()">💾 Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL DISTRIBUZIONE STOCK INIZIALE ── -->
+  <div class="mo" id="modal-distrib">
+    <div class="md" style="max-width:520px">
+      <div class="mh"><h3>📍 Dove si trovano adesso?</h3><button class="mc" onclick="closeModal('modal-distrib')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px" id="distrib-info"></div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:10px">Indica quanti sono in ogni ubicazione</div>
+        <div id="distrib-righe"></div>
+        <div id="distrib-totale" style="margin-top:10px;padding:10px;background:var(--card);border-radius:8px;font-size:13px"></div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-distrib')">Annulla</button>
+        <button class="bp" onclick="salvaDistribuzione()">💾 Salva distribuzione</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL NUOVA UBICAZIONE ── -->
+  <div class="mo" id="modal-deposito">
+    <div class="md" style="max-width:440px">
+      <div class="mh"><h3>🏠 Nuova ubicazione</h3><button class="mc" onclick="closeModal('modal-deposito')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <input type="hidden" id="dep-id">
+        <div class="fg">
+          <div class="fs"><label>Nome ubicazione *</label><input type="text" id="dep-nome" placeholder="es. Deposito Napoli, Mario Spa..."></div>
+          <div><label>Tipo</label>
+            <select id="dep-tipo" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none">
+              <option value="deposito">🏠 Deposito proprio</option>
+              <option value="cliente">🤝 Stoccaggio presso cliente</option>
+            </select>
+          </div>
+          <div class="fs"><label>Indirizzo</label><input type="text" id="dep-indirizzo" placeholder="Via..."></div>
+          <div class="fs"><label>Note</label><input type="text" id="dep-note" placeholder="Persona di riferimento, orari..."></div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-deposito')">Annulla</button>
+        <button class="bp" onclick="salvaDeposito()">💾 Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       CLIENTI
+       ══════════════════════════════════════════════════════════ -->
+  <div id="pg-clienti" class="pg">
+    <div class="pt">👥 Clienti</div>
+    <div class="ps">Anagrafica clienti · Storico cantieri · Report</div>
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="cli-search" placeholder="🔍 Cerca cliente..." oninput="renderClienti()" class="ts" style="flex:1;min-width:180px">
+      <button onclick="apriModalCliente()" class="bp" style="font-size:12px;padding:7px 16px">+ Nuovo cliente</button>
+      <button onclick="document.getElementById('cli-import-file').click()" class="bs" style="font-size:12px;padding:7px 16px">📥 Importa Excel</button>
+      <input type="file" id="cli-import-file" accept=".xlsx,.xls" style="display:none" onchange="importaClientiExcel(this)">
+    </div>
+    <div id="cli-list"></div>
+  </div>
+
+  <!-- MODAL CLIENTE -->
+  <div class="mo" id="modal-cliente">
+    <div class="md" style="max-width:520px">
+      <div class="mh"><h3 id="cli-modal-title">👥 Nuovo cliente</h3><button class="mc" onclick="closeModal('modal-cliente')">✕</button></div>
+      <div style="padding:0 20px 8px">
+        <input type="hidden" id="cli-id">
+        <div class="fg">
+          <div class="fs"><label>Ragione sociale *</label><input type="text" id="cli-rs" placeholder="es. Mario Spa, Comune di Caserta..."></div>
+          <div><label>P.IVA / C.F.</label><input type="text" id="cli-piva" placeholder="IT12345678901"></div>
+          <div class="fs"><label>Referente</label><input type="text" id="cli-ref" placeholder="Nome e cognome referente"></div>
+          <div><label>Telefono</label><input type="tel" id="cli-tel" placeholder="+39 ..."></div>
+          <div class="fs"><label>Email</label><input type="email" id="cli-email" placeholder="email@esempio.com"></div>
+          <div class="fs"><label>Indirizzo</label><input type="text" id="cli-ind" placeholder="Via, CAP, Città"></div>
+          <div class="fs"><label>Note</label><input type="text" id="cli-note" placeholder="Note interne..."></div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bs" onclick="closeModal('modal-cliente')">Annulla</button>
+        <button class="bp" onclick="salvaCliente()">💾 Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETTAGLIO CLIENTE -->
+  <div class="mo" id="modal-cliente-dett">
+    <div class="md" style="max-width:640px">
+      <div class="mh"><h3 id="cli-dett-title">Cliente</h3><button class="mc" onclick="closeModal('modal-cliente-dett')">✕</button></div>
+      <div style="padding:0 20px 14px">
+        <div id="cli-dett-info" style="margin-bottom:16px"></div>
+        <!-- Tab -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--brd);padding-bottom:8px">
+          <button id="cdt-btn-cant" onclick="cliDettTab('cant')" class="bp" style="font-size:12px;padding:5px 14px">🏗️ Cantieri</button>
+          <button id="cdt-btn-forn" onclick="cliDettTab('forn')" class="bs" style="font-size:12px;padding:5px 14px">📦 Forniture</button>
+          <button id="cdt-btn-buoni" onclick="cliDettTab('buoni')" class="bs" style="font-size:12px;padding:5px 14px">📄 Buoni</button>
+        </div>
+        <div id="cli-dett-body"></div>
+      </div>
+      <div class="mf">
+        <button onclick="eliminaCliente(document.getElementById('cli-id-dett').value)" class="bd" style="font-size:12px">🗑 Elimina</button>
+        <button onclick="apriModificaCliente(document.getElementById('cli-id-dett').value)" class="bs">✏️ Modifica</button>
+        <button class="bp" onclick="closeModal('modal-cliente-dett')">Chiudi</button>
+      </div>
+      <input type="hidden" id="cli-id-dett">
+    </div>
+  </div>
+
+  <!-- ══ NUOVO MODULO: RISORSE & DEPOSITI (allocazioni con arco temporale) ══ -->
+  <div id="pg-risorse2" class="pg">
+    <div class="pt">📐 Risorse & Depositi</div>
+    <div class="ps">Disponibilità reale per data · scarico dal deposito al cantiere per arco temporale</div>
+
+    <!-- barra data + tab -->
+    <div class="fc" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;color:var(--text2)">Disponibilità alla data:</span>
+        <input type="date" id="r2-data" onchange="r2Render()" style="max-width:160px">
+        <button class="bs" onclick="document.getElementById('r2-data').value=r2today();r2Render()" style="font-size:12px">Oggi</button>
+        <div style="flex:1"></div>
+        <button id="r2-badge-rientri" onclick="r2ApriRientri()" style="display:none;align-items:center;gap:4px;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.4);color:#e8b84b;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"></button>
+        <button class="bp" onclick="r2ApriRisorsa()">➕ Risorsa</button>
+        <button class="bs" onclick="r2ApriDeposito()">🏭 Depositi</button>
+      </div>
+    </div>
+
+    <div class="tabs2" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="bp" id="r2tab-disp" onclick="r2Tab('disp')" style="font-size:12px;padding:7px 14px">Disponibilità</button>
+      <button class="bs" id="r2tab-alloc" onclick="r2Tab('alloc')" style="font-size:12px;padding:7px 14px">Allocazioni</button>
+      <button class="bs" id="r2tab-dep" onclick="r2Tab('dep')" style="font-size:12px;padding:7px 14px">Depositi</button>
+      <button class="bs" id="r2tab-dove" onclick="r2Tab('dove')" style="font-size:12px;padding:7px 14px">📍 Dove sono</button>
+    </div>
+
+    <div id="r2-view-disp"></div>
+    <div id="r2-view-alloc" style="display:none"></div>
+    <div id="r2-view-dep" style="display:none"></div>
+    <div id="r2-view-dove" style="display:none"></div>
+  </div>
+
+  <div id="pg-monitor" class="pg">
+    <div class="pt">Monitor Risorse</div>
+    <div class="ps">Disponibilità attrezzature per periodo — confronto scorte vs impegni</div>
+
+    <!-- INVENTARIO + MONITOR affiancati -->
+    <div style="display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+      <button class="bp" onclick="apriNuovaRisorsa()" >➕ Aggiungi risorsa</button>
+      <div style="margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text2)">Verifica disponibilità dal</span>
+        <input type="date" id="mon-from" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:5px 9px;outline:none">
+        <span style="color:var(--text2)">al</span>
+        <input type="date" id="mon-to" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:5px 9px;outline:none">
+        <button class="bp" onclick="renderMonitor()" style="font-size:12px;padding:6px 14px">🔍 Verifica</button>
+      </div>
+    </div>
+
+    <!-- INVENTARIO RISORSE -->
+    <div class="sl">Inventario risorse</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Tocca una risorsa per modificarne nome/quantità o eliminarla</div>
+    <div id="risorse-inventario" style="margin-bottom:20px"></div>
+
+    <!-- MONITOR DISPONIBILITÀ -->
+    <div class="sl">Disponibilità per periodo</div>
+    <div id="risorse-monitor"></div>
+
+  </div>
+
+  <!-- MODAL NUOVA/MODIFICA RISORSA -->
+  <div class="mo" id="modal-duplica-interv">
+    <div class="md" style="max-width:380px">
+      <div class="mh">
+        <h3>📅 Ripeti lavorazione su più giorni</h3>
+        <button class="mc" onclick="closeModal('modal-duplica-interv')">✕</button>
+      </div>
+      <div class="mb">
+        <div class="fc">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Stessa descrizione e stessa squadra ripetute ogni giorno nell'intervallo, con gli stessi orari — modificabili poi singolarmente dall'elenco interventi.</p>
+          <div style="font-size:12px;margin-bottom:4px"><b>Descrizione:</b> <span id="dup-interv-desc">—</span></div>
+          <div style="font-size:12px;margin-bottom:12px"><b>Squadra:</b> <span id="dup-interv-squadra">—</span></div>
+          <div class="fg">
+            <div><label>Da</label><input type="date" id="dup-da"></div>
+            <div><label>A</label><input type="date" id="dup-a"></div>
+          </div>
+          <div class="fa" style="margin-top:14px">
+            <button class="bp" onclick="confermaDuplicaIntervPeriodo()">📅 Ripeti</button>
+            <button class="bs" onclick="closeModal('modal-duplica-interv')">Annulla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mo" id="modal-risorsa">
+    <div class="md" style="max-width:480px">
+      <div class="mh">
+        <h3 id="modal-risorsa-title">Nuova risorsa</h3>
+        <button class="mc" onclick="closeModal('modal-risorsa')">✕</button>
+      </div>
+      <div class="mb">
+        <div class="fc">
+          <h3>📦 Dati risorsa</h3>
+          <div class="fg">
+            <div><label>Nome risorsa *</label><input id="rs-nome" placeholder="Es. Sedie mono-scocca"></div>
+            <div><label>Categoria</label>
+              <select id="rs-cat">
+                <option value="Sedute">Sedute</option>
+                <option value="Pedane/Palchi">Pedane/Palchi</option>
+                <option value="Tensostrutture">Tensostrutture</option>
+                <option value="Illuminazione">Illuminazione</option>
+                <option value="Audio/Video">Audio/Video</option>
+                <option value="Recinzioni">Recinzioni</option>
+                <option value="Tavoli">Tavoli</option>
+                <option value="Altro">Altro</option>
+              </select>
+            </div>
+            <div><label>Quantità totale disponibile *</label><input type="number" id="rs-qty" placeholder="Es. 900" min="0"></div>
+            <div><label>Unità di misura</label><input id="rs-unit" placeholder="Es. pz, mt, m²" value="pz"></div>
+          </div>
+          <div style="margin-top:10px">
+            <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px">Note</label>
+            <textarea id="rs-note" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:9px 11px;width:100%;min-height:50px;outline:none;resize:vertical" placeholder="Es. Colore bianco, impilabili, max 10 per colonna"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="mf">
+        <button class="bd" id="rs-btn-elimina" onclick="eliminaRisorsa()" style="margin-right:auto">🗑️ Elimina</button>
+        <button class="bs" onclick="closeModal('modal-risorsa')">Annulla</button>
+        <button class="bp" onclick="salvaRisorsa()">💾 Salva</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="pg-squadre" class="pg">
+    <div class="pt">Squadre</div>
+    <div class="ps">Squadra pianificata per cantiere a confronto con le presenze reali registrate nel Gestionale</div>
+    <div class="fa" style="margin-bottom:14px">
+      <button class="bp" onclick="caricaPresenzeGestionale()">🔄 Aggiorna presenze dal Gestionale</button>
+    </div>
+    <div id="squadre-log" style="display:none;background:var(--navy);border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:11px;margin-bottom:14px"></div>
+    <div id="squadre-meta" style="font-size:11px;color:var(--text2);margin-bottom:14px"></div>
+
+    <!-- RIEPILOGO GIORNALIERO -->
+    <div class="sl">Riepilogo giornaliero — chi è dove</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Tocca una cella assegnata per liberare la persona, o una cella libera per assegnarla</div>
+
+    <!-- Toggle vista -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;background:var(--navy2);border-radius:10px;padding:4px">
+      <button id="sq-btn-giorno" onclick="setSqVista('giorno')" style="flex:1;padding:8px 4px;border-radius:7px;border:none;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;background:var(--teal);color:#fff">📅 Per giorno</button>
+      <button id="sq-btn-persona" onclick="setSqVista('persona')" style="flex:1;padding:8px 4px;border-radius:7px;border:none;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;background:transparent;color:var(--text2)">👷 Per persona</button>
+      <button id="sq-btn-griglia" onclick="setSqVista('griglia')" style="flex:1;padding:8px 4px;border-radius:7px;border:none;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;background:transparent;color:var(--text2)">📊 Griglia</button>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="bs" style="font-size:11px;padding:5px 10px" onclick="impostaPeriodoExport('sq','oggi');renderRiepilogoGiornaliero()">Oggi</button>
+      <button class="bs" style="font-size:11px;padding:5px 10px" onclick="impostaPeriodoExport('sq','settimana');renderRiepilogoGiornaliero()">Questa settimana</button>
+    </div>
+    <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
+      <div><label style="font-size:11px;color:var(--text2)">Da</label><br><input type="date" id="sq-from" onchange="renderRiepilogoGiornaliero()" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:5px 9px;outline:none"></div>
+      <div><label style="font-size:11px;color:var(--text2)">A</label><br><input type="date" id="sq-to" onchange="renderRiepilogoGiornaliero()" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:5px 9px;outline:none"></div>
+    </div>
+    <div id="riepilogo-giornaliero" style="overflow-x:auto;margin-bottom:26px"></div>
+    <div class="fa" style="margin-bottom:20px">
+      <button class="bp" onclick="esportaSquadreExcel()">📊 Export Excel griglia squadre</button>
+      <button class="bs" onclick="esportaSquadrePDF()">📄 Export PDF griglia squadre</button>
+      <button class="bs" onclick="esportaOreLavorate()">⏱ Ore lavorate per dipendente</button>
+    </div>
+
+    <div class="sl">Confronto per cantiere</div>
+    <div id="squadre-content"></div>
+  </div>
+
+  <!-- INBOX ROBERTO -->
+  <div id="pg-inbox" class="pg">
+    <div class="pt">📥 Inbox — Proposte di Roberto</div>
+    <div class="ps">Revisiona le modifiche proposte dal campo prima che entrino nel sistema ufficiale.</div>
+    <div class="fa" style="margin-bottom:16px">
+      <button class="bp" onclick="caricaInbox()">🔄 Aggiorna inbox</button>
+      <button class="bs" onclick="apriImpostaPIN()">🔑 Imposta PIN Roberto</button>
+    </div>
+    <div id="inbox-pin-setup" style="display:none;background:var(--navy2);border:1px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Imposta PIN di accesso per Roberto</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Scegli un codice a 6 cifre da condividere con Roberto. Potrai cambiarlo in qualsiasi momento.</div>
+      <input type="number" id="inbox-pin-input" placeholder="Inserisci PIN a 6 cifre" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:18px;padding:10px 14px;width:100%;outline:none;margin-bottom:10px;letter-spacing:4px">
+      <div class="fa">
+        <button class="bp" onclick="salvaPin()">💾 Salva PIN</button>
+        <button class="bs" onclick="document.getElementById('inbox-pin-setup').style.display='none'">Annulla</button>
+      </div>
+    </div>
+    <div id="inbox-content">
+      <div class="ri"><div class="rls">Premi "Aggiorna inbox" per leggere le proposte di Roberto.</div></div>
+    </div>
+  </div>
+
+  <div id="pg-sync" class="pg">
+    <div class="pt">Sync & Calendar</div>
+    <div class="ps">Stato sincronizzazione cloud condivisa col Gestionale</div>
+    <div class="fc">
+      <h3>Cloud (Supabase — condiviso col Gestionale)</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Il Planning legge e scrive la stessa riga cloud del Gestionale 81|00.
+        Aggiorna solo i propri campi (cantieri estesi, interventi), senza toccare presenze, saldi o documenti del gestionale.
+      </p>
+      <div class="fa">
+        <button class="bp" onclick="cloudSalvaOra()">☁️ Salva sul cloud ora</button>
+        <button class="bs" onclick="cloudCaricaOra()">📂 Carica dal cloud ora</button>
+      </div>
+      <div id="cloud-log" style="display:none;background:var(--navy);border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:11px;margin-top:12px"></div>
+    </div>
+    <div class="fc">
+      <h3>Backup locale (sicurezza)</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Scarica un file .json con tutti i dati del Planning (cantieri, mezzi, personale, risorse) sul tuo dispositivo.
+        Utile come "nocciolo duro" indipendente dal cloud, nel caso una sincronizzazione errata cancelli o sovrascriva dei dati per errore.
+      </p>
+      <div class="fa">
+        <button class="bp" onclick="planningExportJSON()">⬇ Scarica backup ora</button>
+        <button class="bs" onclick="document.getElementById('impFP').click()">⬆ Ripristina da backup</button>
+      </div>
+    </div>
+    <div class="fc">
+      <h3>Google Calendar</h3>
+      <p style="font-size:12px;color:var(--text2)">Sincronizzazione manuale — arriva in uno step successivo, dopo aver consolidato la struttura cantieri/interventi.</p>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- MOBILE NAV -->
+<div id="mnav">
+  <div class="mni">
+    <div class="mni-item active" onclick="nav('oggi')"><span class="mii">📋</span>Oggi</div>
+    <div class="mni-item" onclick="nav('cantieri')"><span class="mii">🏗️</span>Cantieri</div>
+    <div class="mni-item" onclick="nav('calendario')"><span class="mii">📅</span>Cal.</div>
+    <div class="mni-item" onclick="nav('personale')"><span class="mii">👷</span>Persone</div>
+    <div class="mni-item" onclick="nav('squadre')"><span class="mii">👥</span>Squadre</div>
+    <div class="mni-item" onclick="nav('risorse2')"><span class="mii">🪑</span>Risorse</div>
+    <div class="mni-item" onclick="nav('clienti')"><span class="mii">👥</span>Clienti</div>
+    <div class="mni-item" onclick="nav('mezzi-db')"><span class="mii">🚛</span>Mezzi</div>
+    <div class="mni-item" onclick="nav('dash')"><span class="mii">⬛</span>Dash</div>
+    <div class="mni-item" onclick="nav('inbox')"><span class="mii">📥</span>Inbox</div>
+    <div class="mni-item" onclick="nav('sync')"><span class="mii">☁️</span>Sync</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+</div>
+
+<script>
+/* Il motore dell'app vive in planning.app.js: caricato sempre fresco (anti-cache automatico).
+   Aggiornamenti futuri: si carica SOLO planning.app.js — questo index resta stabile. */
+(function(){
+  var v=new URLSearchParams(location.search).get('v') || Date.now();
+  var s=document.createElement('script');
+  s.src='planning.app.js?v='+v;
+  s.onerror=function(){ document.body.innerHTML='<div style="padding:40px;font-family:sans-serif;color:#e0e6ed;background:#0a1628;min-height:100vh"><h2>⚠ Manca planning.app.js</h2><p>Carica anche il file <b>planning.app.js</b> nel repo (accanto a index.html).</p></div>'; };
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>
