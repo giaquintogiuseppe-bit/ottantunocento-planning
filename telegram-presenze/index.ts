@@ -118,8 +118,8 @@ function parseRiga(riga: string) {
   return { nome, ore, oreStraord, trasferta };
 }
 
-// Riga a gruppo con orario: "Renato, Valerio e Francesco dalle 7 alle 13"
-// Calcola le ore dall'intervallo e le applica a tutte le persone elencate.
+// Riga con orario: "Renato, Valerio e Francesco dalle 7 alle 13"
+// Produce un TURNO (oraI/oraF/notturno) per ogni persona elencata.
 function fmtOra(h: number, m: number) { return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }
 function parseOrario(riga: string, lista: { id: string; nome: string }[]) {
   const raw = riga.trim();
@@ -132,21 +132,21 @@ function parseOrario(riga: string, lista: { id: string; nome: string }[]) {
   if (ore < 0) ore += 24;              // turno che passa la mezzanotte
   if (ore <= 0 || ore > 24) return null;
   ore = Math.round(ore * 100) / 100;
-  const trasferta = /\b(trasferta|trasf|tras|fuori)\b/i.test(raw);
-  const straordM = raw.match(/\+\s*(\d+(?:[.,]\d+)?)/);
-  const oreStraord = straordM ? parseFloat(straordM[1].replace(",", ".")) : 0;
+  const oraI = fmtOra(h1, min1), oraF = fmtOra(h2, min2);
+  // notturno: inizio dalle 22 in poi, o fine entro le 6, o turno che scavalca la mezzanotte
+  const notturno = h1 >= 22 || h2 <= 6 || (h2 * 60 + min2) < (h1 * 60 + min1);
   const namesPart = raw.slice(0, m.index).replace(/[,;]+$/, "").trim();
   const tokens = namesPart.split(/,|\bed\b|\be\b|&/i).map((s) => s.trim()).filter(Boolean);
-  const range = `${fmtOra(h1, min1)}–${fmtOra(h2, min2)}`;
+  const range = `${oraI}–${oraF}`;
   const entries: any[] = [], problemi: string[] = [];
-  if (!tokens.length) return { entries, problemi: [`• "${raw}" → manca il nome prima dell'orario`], ore, range };
+  if (!tokens.length) return { entries, problemi: [`• "${raw}" → manca il nome prima dell'orario`], oraI, oraF, notturno, ore, range };
   for (const tk of tokens) {
     const { match, ambigui } = trovaPersona(tk, lista);
     if (ambigui.length) { problemi.push(`• "${tk}" → più nomi: ${ambigui.map((a: any) => a.nome).join(", ")} — usa il cognome`); continue; }
     if (!match) { problemi.push(`• "${tk}" → non trovato in anagrafica`); continue; }
-    entries.push({ match, ore, oreStraord, trasferta });
+    entries.push({ match, oraI, oraF, notturno, ore });
   }
-  return { entries, problemi, ore, range };
+  return { entries, problemi, oraI, oraF, notturno, ore, range };
 }
 
 // ─── sessione ─────────────────────────────────────────────────────────────────
@@ -176,8 +176,12 @@ async function autorizzato(chatId: string): Promise<{ ok: boolean; nome?: string
   return { ok: !!f, nome: f?.nome };
 }
 
-// ─── scrittura nel blob gestionale (lock ottimistico) ────────────────────────
-type Voce = { data: string; pid: string; cantiere: string; ore: number; oreStraord: number; trasferta: boolean };
+// ─── scrittura nel blob gestionale: AGGIUNGE turni (lock ottimistico) ─────────
+// Formato nativo del Gestionale:
+//   presenze[data][pid] = { turni: [ {id, oraI, oraF, cantiere, importo, notturno} ], totale }
+// L'importo lo lascia 0 (la paga si completa nel Gestionale); totale = somma importi.
+type Voce = { data: string; pid: string; cantiere: string; oraI: string; oraF: string; notturno: boolean };
+function genId() { return "wa" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 async function scriviBlob(voci: Voce[]): Promise<boolean> {
   for (let t = 0; t < 6; t++) {
     const d = await leggiDati();
@@ -187,10 +191,14 @@ async function scriviBlob(voci: Voce[]): Promise<boolean> {
     for (const v of voci) {
       dati.presenze[v.data] = dati.presenze[v.data] || {};
       const prev = dati.presenze[v.data][v.pid] || {};
-      dati.presenze[v.data][v.pid] = {
-        ...prev, cantiere: v.cantiere, ore: v.ore, oreStraord: v.oreStraord,
-        trasferta: v.trasferta, fonte: "telegram", aggiornato: new Date().toISOString(),
-      };
+      const turni = Array.isArray(prev.turni) ? prev.turni.slice() : [];
+      // evita doppioni: stesso orario+cantiere già presente
+      const gia = turni.some((x: any) => x.oraI === v.oraI && x.oraF === v.oraF && x.cantiere === v.cantiere);
+      if (!gia) turni.push({ id: genId(), oraI: v.oraI, oraF: v.oraF, cantiere: v.cantiere, importo: 0, notturno: v.notturno });
+      const totale = turni.reduce((s: number, x: any) => s + (Number(x.importo) || 0), 0);
+      // conserva eventuali campi legittimi preesistenti, senza i vecchi campi "piatti" del bot
+      const { ore, oreStraord, trasferta, fonte, aggiornato, turni: _t, totale: _tot, ...rest } = prev;
+      dati.presenze[v.data][v.pid] = { ...rest, turni, totale };
     }
     const patch = await fetch(`${SB_URL}/rest/v1/gestionale_dati?id=eq.unico&versione=eq.${d.versione}`,
       { method: "PATCH", headers: { ...H, Prefer: "return=representation" }, body: JSON.stringify({ dati }) });
@@ -221,12 +229,12 @@ function kbDopoRighe() {
   return kb([[{ text: "➕ Altro cantiere", callback_data: "altrocant" }, { text: "📅 Altro giorno", callback_data: "altrogiorno" }], [{ text: "✅ Fine", callback_data: "fine" }]]);
 }
 const ISTRUZIONI =
-  "👷 Chi ha lavorato? Due modi (anche insieme):\n\n" +
-  "① A orario (gruppo):\n" +
-  "• Renato, Valerio e Francesco dalle 7 alle 13\n\n" +
-  "② A ore (singolo):\n" +
-  "• Dario 8\n• Kir 8 +2   (2 di straordinario)\n• Valerio 6 trasferta\n\n" +
-  "Puoi mandare più righe insieme.";
+  "👷 Chi ha lavorato e con che orario?\n" +
+  "Scrivi persona/e + orario, es:\n" +
+  "• Renato, Valerio e Francesco dalle 7 alle 13\n" +
+  "• Kir dalle 7:30 alle 16\n\n" +
+  "Ogni riga crea un turno. Per un secondo turno/cantiere: manda un'altra riga o usa ➕ Altro cantiere.\n" +
+  "La paga (importo) la completi poi nel Gestionale.";
 
 async function chiediGiorno(chatId: string, nome: string) {
   await setSessione(chatId, "data", {});
@@ -329,28 +337,16 @@ Deno.serve(async (req) => {
     const righe = testo.split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
     const ok: string[] = [], problemi: string[] = [];
     const voci: Voce[] = [], logRows: any[] = [];
-    const salva = (match: any, ore: number, oreStraord: number, trasferta: boolean, suffisso: string) => {
-      voci.push({ data: ctx.data, pid: match.id, cantiere: ctx.cantiereNome, ore, oreStraord, trasferta });
-      logRows.push({ data: ctx.data, personale_id: match.id, personale_nome: match.nome, cantiere: ctx.cantiereNome, ore, ore_straord: oreStraord, trasferta, registrato_da: capoNome, canale: "telegram", chat_id: chatId });
-      const extra = [oreStraord ? `+${oreStraord} str` : "", trasferta ? "trasferta" : "", suffisso].filter(Boolean).join(", ");
-      ok.push(`• ${match.nome} — ${ore}h${extra ? " (" + extra + ")" : ""}`);
+    const salva = (match: any, oraI: string, oraF: string, notturno: boolean, ore: number) => {
+      voci.push({ data: ctx.data, pid: match.id, cantiere: ctx.cantiereNome, oraI, oraF, notturno });
+      logRows.push({ data: ctx.data, personale_id: match.id, personale_nome: match.nome, cantiere: ctx.cantiereNome, ore, ora_inizio: oraI, ora_fine: oraF, notturno, registrato_da: capoNome, canale: "telegram", chat_id: chatId });
+      ok.push(`• ${match.nome} — ${oraI}–${oraF}${notturno ? " 🌙" : ""} (${ore}h)`);
     };
     for (const riga of righe) {
-      // ① prova prima il formato a orario di gruppo ("… dalle 7 alle 13")
       const org = parseOrario(riga, lista);
-      if (org) {
-        for (const e of org.entries) salva(e.match, e.ore, e.oreStraord, e.trasferta, org.range);
-        for (const pr of org.problemi) problemi.push(pr);
-        continue;
-      }
-      // ② formato a ore singolo ("Renato 8", "Dario 8 +2")
-      const p = parseRiga(riga);
-      if (!p || !p.nome) { problemi.push(`• "${riga}" → manca il nome`); continue; }
-      if (p.ore === null) { problemi.push(`• ${p.nome} → mancano le ore`); continue; }
-      const { match, ambigui } = trovaPersona(p.nome, lista);
-      if (ambigui.length) { problemi.push(`• "${p.nome}" → più nomi: ${ambigui.map((a: any) => a.nome).join(", ")} — usa il cognome`); continue; }
-      if (!match) { problemi.push(`• "${p.nome}" → non trovato in anagrafica`); continue; }
-      salva(match, p.ore, p.oreStraord, p.trasferta, "");
+      if (!org) { problemi.push(`• "${riga}" → manca l'orario. Scrivi es: ${riga.split(/\s+/)[0] || "Nome"} dalle 8 alle 16`); continue; }
+      for (const e of org.entries) salva(e.match, e.oraI, e.oraF, e.notturno, e.ore);
+      for (const pr of org.problemi) problemi.push(pr);
     }
     await logRegistro(logRows);
     let avviso = "";
