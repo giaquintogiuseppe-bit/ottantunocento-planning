@@ -192,6 +192,14 @@ async function scriviBlob(voci: Voce[]): Promise<boolean> {
       dati.presenze[v.data] = dati.presenze[v.data] || {};
       const prev = dati.presenze[v.data][v.pid] || {};
       const turni = Array.isArray(prev.turni) ? prev.turni.slice() : [];
+      // se il record è nel VECCHIO formato (base/straord/totale) migra prima quel valore
+      // in un turno, così non perdo la paga già presente (come fa il Gestionale).
+      if (!turni.length) {
+        const impPrev = (parseFloat(prev.base) || 0) + (parseFloat(prev.straord) || 0) || (parseFloat(prev.totale) || 0);
+        if (impPrev > 0 || prev.cantiere) {
+          turni.push({ id: genId(), cantiere: prev.cantiere || "", oraI: "08:00", oraF: "18:00", importo: impPrev, notturno: false });
+        }
+      }
       // evita doppioni: stesso orario+cantiere già presente
       const gia = turni.some((x: any) => x.oraI === v.oraI && x.oraF === v.oraF && x.cantiere === v.cantiere);
       if (!gia) turni.push({ id: genId(), oraI: v.oraI, oraF: v.oraF, cantiere: v.cantiere, importo: 0, notturno: v.notturno });
