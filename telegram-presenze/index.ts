@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
 
   // setup webhook: apri  …/telegram-presenze?setup  una volta sola
   if (url.searchParams.has("setup")) {
-    const hook = `${SB_URL.replace(".supabase.co", ".supabase.co")}/functions/v1/telegram-presenze`;
+    const hook = `${SB_URL}/functions/v1/telegram-presenze`;
     const r = await tg("setWebhook", { url: hook, secret_token: SECRET, allowed_updates: ["message", "callback_query"] });
     return new Response(JSON.stringify(await r.json(), null, 2), { headers: { "Content-Type": "application/json" } });
   }
