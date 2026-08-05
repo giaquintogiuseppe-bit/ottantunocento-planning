@@ -21,10 +21,13 @@
   var PIN_EMAIL = 'giaquinto.giuseppe+campo@gmail.com';  // account condiviso app di campo
   var LSK = 'sb81_sess';
   var _fetch = window.fetch.bind(window);
+  // App col PIN: sessione volatile (chiede il PIN a ogni apertura).
+  // App con email: sessione persistente (resta connesso finché non esci).
+  var STORE = (MODE === 'pin') ? window.sessionStorage : window.localStorage;
 
-  // ── sessione in localStorage ─────────────────────────────────────────────
-  function getSess(){ try{ return JSON.parse(localStorage.getItem(LSK)||'null'); }catch(e){ return null; } }
-  function setSess(s){ try{ s ? localStorage.setItem(LSK, JSON.stringify(s)) : localStorage.removeItem(LSK); }catch(e){} }
+  // ── sessione ─────────────────────────────────────────────────────────────
+  function getSess(){ try{ return JSON.parse(STORE.getItem(LSK)||'null'); }catch(e){ return null; } }
+  function setSess(s){ try{ s ? STORE.setItem(LSK, JSON.stringify(s)) : STORE.removeItem(LSK); }catch(e){} }
   function valida(s){ return s && s.access_token && s.expires_at && (Date.now()/1000 < s.expires_at - 60); }
   function salva(j){ setSess({ access_token:j.access_token, refresh_token:j.refresh_token,
     expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) }); }
@@ -116,10 +119,26 @@
     var first=document.getElementById(isPin?'l81pin':'l81em'); if(first) first.focus();
   }
 
+  // ── tasto Esci (compare quando loggato) ──────────────────────────────────
+  function addLogout(){
+    function ins(){
+      if(document.getElementById('l81out')) return;
+      var b=document.createElement('button'); b.id='l81out'; b.type='button';
+      b.textContent='🔒 Esci';
+      b.setAttribute('style','position:fixed;bottom:12px;left:12px;z-index:2147482000;'+
+        'background:rgba(21,34,56,.85);color:#fff;border:none;border-radius:20px;'+
+        'padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;'+
+        'font-family:-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.3)');
+      b.addEventListener('click', function(){ if(confirm('Vuoi uscire e bloccare?')) window.logout81(); });
+      document.body.appendChild(b);
+    }
+    if(document.body) ins(); else document.addEventListener('DOMContentLoaded', ins);
+  }
+
   // ── avvio: sessione valida? refresh? altrimenti login ────────────────────
   function mostra(){ if(document.body) overlay(); else document.addEventListener('DOMContentLoaded', overlay); }
   var s=getSess();
-  if(valida(s)) return;                       // già loggato: l'app parte normalmente
+  if(valida(s)){ addLogout(); return; }       // già loggato: l'app parte normalmente
   if(s && s.refresh_token){
     refresh(s.refresh_token).then(function(res){
       if(res.ok && res.j.access_token){ salva(res.j); location.reload(); }
