@@ -1,7 +1,9 @@
 # Piano Sicurezza & Login — Ecosistema App 81|00
 
-> Stato: **PROPOSTA DA APPROVARE** (redatto 02/08/2026). Nessuna modifica eseguita.
-> Su richiesta di Giuseppe: prima il piano scritto, poi si esegue solo dopo ok.
+> Stato: ✅ **COMPLETATO (05/08/2026).** Login attivo su tutte le 8 app; database
+> chiuso (RLS: solo utenti autenticati). Vedi "Esito" in fondo.
+>
+> _(Redatto 02/08/2026 come proposta, poi eseguito.)_
 
 ## 1. Perché è urgente (stato attuale verificato sul database)
 
@@ -107,3 +109,33 @@ Se stringo l'RLS **prima** che le app abbiano il login, le app si fermano subito
 
 ---
 _Approvazione richiesta prima di qualsiasi modifica a database o app._
+
+---
+
+## Esito (05/08/2026) — COMPLETATO
+
+**Login attivo su tutte le 8 app** (modulo `login-81100`, fetch-wrapper + Supabase Auth):
+- Email+password (account Giuseppe, SSO condiviso stesso dominio): gestionale, mobile,
+  planning, preventivi, layout-giornate, riconciliazione-carburanti.
+- PIN 501101 (account "Campo", sessione volatile, PIN a ogni apertura): buono-consegna,
+  ottantunocento-roberto (tastierina nativa collegata a Supabase Auth).
+
+**Database chiuso:** tutte le policy `public/anon` spostate a `authenticated`; RLS abilitato
+su ogni tabella (chiuse anche i backup e le tabelle "assistente" prima scoperte). Verifica:
+`policy_aperte_ad_anon = 0`, nessuna tabella senza RLS. Backup pre-modifica: snapshot #904.
+
+**Account Auth:**
+- `giaquinto.giuseppe@gmail.com` (titolare, password personale).
+- `giaquinto.giuseppe+campo@gmail.com` (app di campo, password = PIN 501101).
+- Edge Function `auth-setup` (creazione/reset account, apribile via URL con secret).
+
+**Intoppi risolti:**
+- App Roberto leggeva dati prima del login → invertito l'ordine (prima auth, poi dati).
+- La password dell'account Campo era stata ricreata diversa da 501101 → reimpostata via SQL
+  (`crypt('501101', gen_salt('bf'))`), verificata.
+
+## Ancora da fare (fase 2, facoltativo)
+- [ ] Limitare l'account "Campo" (PIN) alle sole tabelle delle app di campo, così i ragazzi
+      non raggiungono paghe/dati personali (ora authenticated = accesso pieno per tutti).
+- [ ] "Cambia password" nelle app gestionali (Giuseppe è ancora sulla password temporanea).
+- [ ] Bump `sw.js` (service worker) per aggiornamento cache automatico senza scheda privata.
