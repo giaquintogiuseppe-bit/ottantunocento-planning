@@ -1,0 +1,133 @@
+<!-- ═══════════════════════════════════════════════════════════════════════
+     81|00 — Modulo di LOGIN unico per le app (da incollare nell'<head>,
+     subito dopo l'eventuale <script> di supabase-js).
+     Funziona sia con le app a fetch grezzo sia con quelle a supabase-js:
+     intercetta window.fetch e mette il token dell'utente su ogni chiamata
+     a Supabase. Blocca l'app con un overlay finché non si fa login.
+
+     CONFIGURA le 3 righe in CONFIG per ciascuna app:
+       MODE  = 'email'  (gestionale/mobile/planning/preventivi)  |  'pin' (roberto/buoni)
+       APP   = nome mostrato nella schermata di login
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+  // ── CONFIG (cambia solo queste per ogni app) ─────────────────────────────
+  var MODE = 'pin';                 // 'email' oppure 'pin'
+  var APP  = 'Buono di Consegna';
+  // ── COSTANTI ECOSISTEMA (uguali per tutte) ───────────────────────────────
+  var SB_URL  = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
+  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+  var PIN_EMAIL = 'giaquinto.giuseppe+campo@gmail.com';  // account condiviso app di campo
+  var LSK = 'sb81_sess';
+  var _fetch = window.fetch.bind(window);
+
+  // ── sessione in localStorage ─────────────────────────────────────────────
+  function getSess(){ try{ return JSON.parse(localStorage.getItem(LSK)||'null'); }catch(e){ return null; } }
+  function setSess(s){ try{ s ? localStorage.setItem(LSK, JSON.stringify(s)) : localStorage.removeItem(LSK); }catch(e){} }
+  function valida(s){ return s && s.access_token && s.expires_at && (Date.now()/1000 < s.expires_at - 60); }
+  function salva(j){ setSess({ access_token:j.access_token, refresh_token:j.refresh_token,
+    expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) }); }
+
+  // ── fetch patchato: inietta il token utente sulle chiamate Supabase ──────
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === 'string') ? input : (input && input.url) || '';
+      if(url.indexOf(SB_URL) === 0 && url.indexOf('/auth/v1/') < 0){
+        var s = getSess();
+        if(s && s.access_token){
+          var h = new Headers((init && init.headers) || (typeof input!=='string' && input.headers) || {});
+          h.set('apikey', SB_ANON);
+          h.set('Authorization', 'Bearer ' + s.access_token);
+          init = Object.assign({}, init, { headers: h });
+          if(typeof input !== 'string') input = input.url;   // usa l'URL così vincono i nostri header
+        }
+      }
+    }catch(e){}
+    return _fetch(input, init);
+  };
+
+  // ── chiamate auth diritte (niente librerie) ──────────────────────────────
+  function login(email, password){
+    return _fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'apikey':SB_ANON },
+      body: JSON.stringify({ email: email, password: password })
+    }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); });
+  }
+  function refresh(rt){
+    return _fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'apikey':SB_ANON },
+      body: JSON.stringify({ refresh_token: rt })
+    }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); });
+  }
+
+  // ── overlay di login ─────────────────────────────────────────────────────
+  function css(){
+    if(document.getElementById('l81-css')) return;
+    var st=document.createElement('style'); st.id='l81-css';
+    st.textContent = ''+
+    '#l81{position:fixed;inset:0;z-index:2147483000;background:linear-gradient(135deg,#152238,#1e3350);'+
+      'display:flex;align-items:center;justify-content:center;font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:20px}'+
+    '#l81 .box{background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}'+
+    '#l81 .ey{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#c69a3e;font-weight:700}'+
+    '#l81 h2{margin:6px 0 2px;color:#152238;font-size:20px}'+
+    '#l81 .sub{color:#5a6272;font-size:13px;margin-bottom:18px}'+
+    '#l81 input{width:100%;padding:13px;border:1px solid #dcd6c8;border-radius:9px;font-size:16px;margin-bottom:10px;text-align:center}'+
+    '#l81 input:focus{outline:2px solid #0e6b64;border-color:#0e6b64}'+
+    '#l81 .pin{letter-spacing:.4em;font-weight:700}'+
+    '#l81 button{width:100%;padding:13px;border:none;border-radius:9px;background:#0e6b64;color:#fff;font-size:16px;font-weight:700;cursor:pointer}'+
+    '#l81 button:active{background:#0b544f}'+
+    '#l81 .err{color:#a63b3b;font-size:13px;min-height:18px;margin-top:8px}';
+    document.head.appendChild(st);
+  }
+  function overlay(){
+    css();
+    var wrap=document.createElement('div'); wrap.id='l81';
+    var isPin = (MODE==='pin');
+    wrap.innerHTML =
+      '<div class="box">'+
+        '<div class="ey">Ottantunocento S.r.l.</div>'+
+        '<h2>'+APP+'</h2>'+
+        '<div class="sub">'+(isPin?'Inserisci il PIN per accedere':'Accedi con email e password')+'</div>'+
+        (isPin
+          ? '<input id="l81pin" class="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••••" maxlength="12">'
+          : '<input id="l81em" type="email" placeholder="email" autocomplete="username">'+
+            '<input id="l81pw" type="password" placeholder="password" autocomplete="current-password">')+
+        '<button id="l81go">Entra</button>'+
+        '<div class="err" id="l81err"></div>'+
+      '</div>';
+    document.body.appendChild(wrap);
+    var go=document.getElementById('l81go'), err=document.getElementById('l81err');
+    function fail(m){ err.textContent = m || 'Accesso non riuscito'; go.disabled=false; go.textContent='Entra'; }
+    function attempt(){
+      err.textContent=''; go.disabled=true; go.textContent='Attendo…';
+      var email, pw;
+      if(isPin){ pw = (document.getElementById('l81pin').value||'').trim(); email = PIN_EMAIL;
+        if(!pw){ return fail('Inserisci il PIN'); } }
+      else { email=(document.getElementById('l81em').value||'').trim(); pw=document.getElementById('l81pw').value||'';
+        if(!email||!pw){ return fail('Inserisci email e password'); } }
+      login(email, pw).then(function(res){
+        if(res.ok && res.j.access_token){ salva(res.j); location.reload(); }
+        else { fail(isPin ? 'PIN errato' : (res.j.error_description || 'Email o password errati')); }
+      }).catch(function(){ fail('Errore di rete, riprova'); });
+    }
+    go.addEventListener('click', attempt);
+    wrap.addEventListener('keydown', function(e){ if(e.key==='Enter') attempt(); });
+    var first=document.getElementById(isPin?'l81pin':'l81em'); if(first) first.focus();
+  }
+
+  // ── avvio: sessione valida? refresh? altrimenti login ────────────────────
+  function mostra(){ if(document.body) overlay(); else document.addEventListener('DOMContentLoaded', overlay); }
+  var s=getSess();
+  if(valida(s)) return;                       // già loggato: l'app parte normalmente
+  if(s && s.refresh_token){
+    refresh(s.refresh_token).then(function(res){
+      if(res.ok && res.j.access_token){ salva(res.j); location.reload(); }
+      else { setSess(null); mostra(); }
+    }).catch(function(){ mostra(); });
+  } else { mostra(); }
+
+  // logout globale utilizzabile dalle app: window.logout81()
+  window.logout81 = function(){ setSess(null); location.reload(); };
+})();
+</script>
