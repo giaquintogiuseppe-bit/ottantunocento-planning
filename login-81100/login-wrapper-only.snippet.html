@@ -1,0 +1,52 @@
+<!-- 81|00 — Login "solo motore" (senza overlay), per app che hanno GIÀ una
+     loro schermata PIN (es. App Roberto). Installa il fetch-wrapper e
+     espone window.l81login(pin)/l81valid()/l81logout(). Sessione volatile
+     (PIN richiesto a ogni apertura). Da incollare prima di </head>. -->
+<script>
+(function(){
+  'use strict';
+  var SB_URL  = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
+  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
+  var CAMPO   = 'giaquinto.giuseppe+campo@gmail.com';
+  var LSK     = 'sb81_sess';
+  var STORE   = window.sessionStorage;   // volatile: PIN a ogni apertura
+  var _fetch  = window.fetch.bind(window);
+
+  function getS(){ try{ return JSON.parse(STORE.getItem(LSK)||'null'); }catch(e){ return null; } }
+  function setS(s){ try{ s ? STORE.setItem(LSK, JSON.stringify(s)) : STORE.removeItem(LSK); }catch(e){} }
+  function valid(s){ return s && s.access_token && s.expires_at && (Date.now()/1000 < s.expires_at - 60); }
+
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === 'string') ? input : (input && input.url) || '';
+      if(url.indexOf(SB_URL) === 0 && url.indexOf('/auth/v1/') < 0){
+        var s = getS();
+        if(s && s.access_token){
+          var h = new Headers((init && init.headers) || (typeof input!=='string' && input.headers) || {});
+          h.set('apikey', SB_ANON);
+          h.set('Authorization', 'Bearer ' + s.access_token);
+          init = Object.assign({}, init, { headers: h });
+          if(typeof input !== 'string') input = input.url;
+        }
+      }
+    }catch(e){}
+    return _fetch(input, init);
+  };
+
+  window.l81login = function(pin){
+    return _fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'apikey':SB_ANON },
+      body: JSON.stringify({ email: CAMPO, password: pin })
+    }).then(function(r){ return r.json().then(function(j){
+      if(r.ok && j.access_token){
+        setS({ access_token:j.access_token, refresh_token:j.refresh_token,
+               expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) });
+        return { ok:true };
+      }
+      return { ok:false, error:(j.error_description || j.msg || 'PIN errato') };
+    }); });
+  };
+  window.l81valid  = function(){ return valid(getS()); };
+  window.l81logout = function(){ setS(null); };
+})();
+</script>
