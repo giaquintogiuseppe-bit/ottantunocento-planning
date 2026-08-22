@@ -289,7 +289,7 @@ function renderDash(){
         <div class="card-title" style="font-size:15px;line-height:1.2">${c.nome||'—'}</div>
         <span class="bx ${b.cls}" style="white-space:nowrap">${b.txt}</span>
       </div>
-      <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin:4px 0 8px">${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
+      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 8px">${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${quando?`<span class="bx bz">🗓 ${quando}</span>`:''}
         ${nI?`<span class="bx bz">🔨 ${nI}</span>`:''}
@@ -744,7 +744,7 @@ function _renderVistaGiorno(el, giorni, mappa, righe){
       <button onclick="_sqGiornoIdx--;renderRiepilogoGiornaliero()" ${prev?'':'disabled'} style="background:${prev?'var(--teal)':'var(--brd)'};border:none;border-radius:8px;width:40px;height:40px;font-size:18px;cursor:${prev?'pointer':'default'};color:#fff">←</button>
       <div style="text-align:center">
         <div style="font-size:18px;font-weight:800;color:var(--text)">${fgiorno(g)}</div>
-        <div style="font-size:13px;color:var(--text2);font-family:'DM Mono',monospace">${fdate(g)}</div>
+        <div style="font-size:13px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${fdate(g)}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">${_sqGiornoIdx+1} di ${giorni.length}</div>
       </div>
       <button onclick="_sqGiornoIdx++;renderRiepilogoGiornaliero()" ${next?'':'disabled'} style="background:${next?'var(--teal)':'var(--brd)'};border:none;border-radius:8px;width:40px;height:40px;font-size:18px;cursor:${next?'pointer':'default'};color:#fff">→</button>
@@ -828,7 +828,7 @@ function _renderVistaPersona(el, giorni, mappa, righe){
       return `<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px">
         <div style="min-width:46px;text-align:center;padding-top:2px">
           <div style="font-size:11px;font-weight:700;color:${isOggi?'var(--teal)':'var(--text2)'}">${fgiorno(g)}</div>
-          <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${fdate(g).slice(0,5)}</div>
+          <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${fdate(g).slice(0,5)}</div>
         </div>
         <div style="flex:1">
           ${ass.length===0
@@ -1283,7 +1283,7 @@ function cardCR(cr, conAzioni){
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;margin-bottom:5px;background:var(--navy);border-radius:8px;border-left:3px solid ${colP}">
           <div>
             <div style="font-size:13px;font-weight:700">${icon} ${p.nomeDip}</div>
-            <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${fdateGiorno(p.data)} · ${p.cantiereName}${p.tipo!=='RIMUOVI'?` · ${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}`:''}</div>
+            <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${fdateGiorno(p.data)} · ${p.cantiereName}${p.tipo!=='RIMUOVI'?` · ${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}`:''}</div>
             ${p.note?`<div style="font-size:11px;color:var(--text2);font-style:italic">"${p.note}"</div>`:''}
           </div>
           ${conAzioni&&cr.stato!=='approved'?`<div style="display:flex;gap:5px;flex-shrink:0">
@@ -1326,9 +1326,9 @@ function cardCR(cr, conAzioni){
   // Azioni principali
   const azioniHtml = conAzioni ? `
     <div style="display:flex;gap:8px;margin-top:14px">
-      <button onclick="approvaCR('${cr.id}')" style="flex:2;background:var(--green);border:none;border-radius:8px;padding:11px;color:#000;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Approva tutto</button>
-      <button onclick="apriModificaCR('${cr.id}')" style="flex:1;background:rgba(232,184,75,.1);border:1px solid var(--gold);border-radius:8px;padding:11px;color:var(--gold);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✏️ Modifica</button>
-      <button onclick="rifiutaCR('${cr.id}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:11px;color:var(--red);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
+      <button onclick="approvaCR('${cr.id}')" style="flex:2;background:var(--green);border:none;border-radius:8px;padding:11px;color:#000;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Approva tutto</button>
+      <button onclick="apriModificaCR('${cr.id}')" style="flex:1;background:rgba(232,184,75,.1);border:1px solid var(--gold);border-radius:8px;padding:11px;color:var(--gold);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✏️ Modifica</button>
+      <button onclick="rifiutaCR('${cr.id}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:11px;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
     </div>` : (cr.stato==='approved'?`
     <div style="margin-top:10px;display:flex;gap:6px">
       <button onclick="modificaCRApprovato('${cr.id}')" style="font-size:11px;padding:5px 10px;background:var(--navy2);border:1px solid var(--brd);border-radius:6px;color:var(--text2);cursor:pointer">✏️ Modifica</button>
@@ -1346,7 +1346,7 @@ function cardCR(cr, conAzioni){
       </div>
       <span style="font-size:11px;font-weight:700;color:${col};background:${col}18;border:1px solid ${col};border-radius:6px;padding:3px 8px;white-space:nowrap;flex-shrink:0">${statoLabel[cr.stato||'pending']}</span>
     </div>
-    <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:4px">👤 ${cr.autore||cr.propostoDa||'Roberto'} · ${ts}</div>
+    <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:4px">👤 ${cr.autore||cr.propostoDa||'Roberto'} · ${ts}</div>
     ${bodyHtml}
     ${cr.note?`<div style="font-size:12px;color:var(--text2);font-style:italic">"${cr.note}"</div>`:''}
     ${azioniHtml}
@@ -1608,8 +1608,8 @@ function cardCR(cr, conAzioni){
 
   const azioniHtml = conAzioni ? `
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="approvaCR('${cr.id}')" style="flex:1;background:var(--green);border:none;border-radius:8px;padding:10px;color:#000;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Approva</button>
-      <button onclick="rifiutaCR('${cr.id}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:10px;color:var(--red);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
+      <button onclick="approvaCR('${cr.id}')" style="flex:1;background:var(--green);border:none;border-radius:8px;padding:10px;color:#000;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Approva</button>
+      <button onclick="rifiutaCR('${cr.id}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:10px;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
     </div>` : '';
 
   return `<div class="fc" style="margin-bottom:12px;border-left:3px solid ${col}">
@@ -1620,7 +1620,7 @@ function cardCR(cr, conAzioni){
       </div>
       <span style="font-size:11px;font-weight:700;color:${col};background:${col}18;border:1px solid ${col};border-radius:6px;padding:3px 8px;white-space:nowrap">${statoLabel[cr.stato]||cr.stato}</span>
     </div>
-    <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:4px">
+    <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:4px">
       👤 ${cr.autore} · ${new Date(cr.timestamp).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}
     </div>
     ${diffHtml}
@@ -2432,7 +2432,7 @@ async function renderCarburanteCantiere(nomeCantiere, el){
     const eur   = righe.reduce((s,r)=>s+(+r.importo||0),0);
     const fd2 = iso => { const d=new Date(iso); return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',timeZone:'UTC'})+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'}); };
     el.innerHTML = `
-      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-family:'DM Mono',monospace">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-family:'IBM Plex Mono',monospace">
         <div style="background:var(--navy);border-radius:8px;padding:8px 14px"><span style="font-size:18px;font-weight:700;color:var(--gold)">€ ${eur.toFixed(2)}</span><span style="font-size:11px;color:var(--text2)"> totale</span></div>
         <div style="background:var(--navy);border-radius:8px;padding:8px 14px"><span style="font-size:18px;font-weight:700">${litri.toFixed(1)} L</span><span style="font-size:11px;color:var(--text2)"> · ${righe.length} pieni</span></div>
       </div>
@@ -2440,9 +2440,9 @@ async function renderCarburanteCantiere(nomeCantiere, el){
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--navy);border-radius:8px;margin-bottom:5px;font-size:12px">
           <div style="min-width:0">
             <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.mezzo||'—'}</div>
-            <div style="color:var(--text2);font-family:'DM Mono',monospace">${fd2(r.avvenuto_il)} · ${r.carburante||''} ${r.litri?(+r.litri).toFixed(1)+' L':''}${r.scontrino_autore?' · 📄 '+r.scontrino_autore:''}</div>
+            <div style="color:var(--text2);font-family:'IBM Plex Mono',monospace">${fd2(r.avvenuto_il)} · ${r.carburante||''} ${r.litri?(+r.litri).toFixed(1)+' L':''}${r.scontrino_autore?' · 📄 '+r.scontrino_autore:''}</div>
           </div>
-          <div style="font-family:'DM Mono',monospace;font-weight:700;white-space:nowrap">€ ${(+r.importo||0).toFixed(2)}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;white-space:nowrap">€ ${(+r.importo||0).toFixed(2)}</div>
         </div>`).join('')}
       ${righe.length>15?`<div style="color:var(--text2);font-size:11px;margin-top:4px">… e altri ${righe.length-15} rifornimenti (totali già inclusi)</div>`:''}
     `;
@@ -2500,12 +2500,12 @@ function renderMagAlert(){
 
   alertEl.innerHTML=`<div style="background:rgba(232,184,75,.08);border:1px solid rgba(232,184,75,.3);border-radius:var(--r);padding:14px">
     <div style="font-weight:700;color:var(--gold);margin-bottom:10px">⚠️ Materiali presso cantieri chiusi</div>
-    ${problemi.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,.05)">
+    ${problemi.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--brd)">
       <div>
         <div style="font-weight:600;font-size:13px">🏗️ ${p.cantiere.nome}</div>
         <div style="font-size:11px;color:var(--text2)">${p.articoli.map(a=>`${a.qty} ${a.nome}`).join(' · ')}</div>
       </div>
-      <button onclick="apriRientroVeloce('${p.cantiere.id}')" style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:6px;padding:6px 12px;color:var(--teal);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Syne',sans-serif">↩ Rientra</button>
+      <button onclick="apriRientroVeloce('${p.cantiere.id}')" style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:6px;padding:6px 12px;color:var(--teal);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif">↩ Rientra</button>
     </div>`).join('')}
   </div>`;
 }
@@ -2559,7 +2559,7 @@ function renderMagDisp(){
           <div style="font-size:11px;color:var(--text2)">${a.categoria||'—'} · totale ${totDisp} ${a.unita||'pz'}</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:18px;font-weight:800;color:${totFuori>0?'var(--gold)':'var(--teal)'};font-family:'DM Mono',monospace">${totDisp-totFuori} ${a.unita||'pz'}</div>
+          <div style="font-size:18px;font-weight:800;color:${totFuori>0?'var(--gold)':'var(--teal)'};font-family:'IBM Plex Mono',monospace">${totDisp-totFuori} ${a.unita||'pz'}</div>
           <div style="font-size:11px;color:var(--text2)">in deposito</div>
         </div>
       </div>
@@ -2572,10 +2572,10 @@ function renderMagDisp(){
         </div>`).join('')}</div>`:
         '<div style="font-size:11px;color:var(--text2);font-style:italic">Tutto in deposito</div>'}
       <div style="margin-top:10px;display:flex;gap:6px">
-        <button onclick="apriModalMov('USCITA','${a.id}')" style="font-size:11px;padding:5px 10px;background:var(--td);border:none;border-radius:6px;color:var(--teal);font-family:'Syne',sans-serif;font-weight:700;cursor:pointer">📤 Uscita</button>
-        <button onclick="apriModalMov('RIENTRO','${a.id}')" style="font-size:11px;padding:5px 10px;background:rgba(75,232,122,.1);border:1px solid rgba(75,232,122,.2);border-radius:6px;color:var(--green);font-family:'Syne',sans-serif;font-weight:700;cursor:pointer">📥 Rientro</button>
-        <button onclick="apriModalMov('STOCCAGGIO','${a.id}')" style="font-size:11px;padding:5px 10px;background:rgba(122,160,255,.1);border:1px solid rgba(122,160,255,.2);border-radius:6px;color:#7aa0ff;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer">📦 Stocca</button>
-        <button onclick="apriModalArticolo('${a.id}')" style="font-size:11px;padding:5px 10px;background:var(--card);border:1px solid var(--brd);border-radius:6px;color:var(--text2);font-family:'Syne',sans-serif;font-weight:600;cursor:pointer">✏️</button>
+        <button onclick="apriModalMov('USCITA','${a.id}')" style="font-size:11px;padding:5px 10px;background:var(--td);border:none;border-radius:6px;color:var(--teal);font-family:'IBM Plex Sans',sans-serif;font-weight:700;cursor:pointer">📤 Uscita</button>
+        <button onclick="apriModalMov('RIENTRO','${a.id}')" style="font-size:11px;padding:5px 10px;background:rgba(75,232,122,.1);border:1px solid rgba(75,232,122,.2);border-radius:6px;color:var(--green);font-family:'IBM Plex Sans',sans-serif;font-weight:700;cursor:pointer">📥 Rientro</button>
+        <button onclick="apriModalMov('STOCCAGGIO','${a.id}')" style="font-size:11px;padding:5px 10px;background:rgba(122,160,255,.1);border:1px solid rgba(122,160,255,.2);border-radius:6px;color:#7aa0ff;font-family:'IBM Plex Sans',sans-serif;font-weight:700;cursor:pointer">📦 Stocca</button>
+        <button onclick="apriModalArticolo('${a.id}')" style="font-size:11px;padding:5px 10px;background:var(--card);border:1px solid var(--brd);border-radius:6px;color:var(--text2);font-family:'IBM Plex Sans',sans-serif;font-weight:600;cursor:pointer">✏️</button>
       </div>
     </div>`;
   });
@@ -2596,10 +2596,10 @@ function renderMagCat(){
           <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--brd)">Totale</th>
           <th style="padding:8px 10px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--brd)"></th>
         </tr></thead>
-        <tbody>${(M.articoli||[]).map(a=>`<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+        <tbody>${(M.articoli||[]).map(a=>`<tr style="border-bottom:1px solid var(--brd)">
           <td style="padding:10px"><div style="font-weight:600;font-size:13px">${a.nome}</div>${a.descrizione?`<div style="font-size:11px;color:var(--text2)">${a.descrizione}</div>`:''}</td>
           <td style="padding:10px;font-size:12px;color:var(--text2)">${a.categoria||'—'}</td>
-          <td style="padding:10px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${a.quantitaTotale||0} ${a.unita||'pz'}</td>
+          <td style="padding:10px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700">${a.quantitaTotale||0} ${a.unita||'pz'}</td>
           <td style="padding:10px;white-space:nowrap">
             <button onclick="apriModalArticolo('${a.id}')" class="bs" style="font-size:11px;padding:4px 8px;margin-right:4px">✏️</button>
             <button onclick="eliminaArticolo('${a.id}')" class="bd" style="font-size:11px;padding:4px 8px">✕</button>
@@ -2620,15 +2620,15 @@ function renderMagMov(){
     ? movs.map(m=>{
         const t=MOV_TIPI[m.tipo]||{label:m.tipo,colore:'var(--text2)'};
         const art=(M.articoli||[]).find(a=>a.id===m.articoloId);
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)">
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600">${art?.nome||m.articoloNome||'—'} · <span style="font-weight:800;font-family:'DM Mono',monospace">${m.quantita} ${art?.unita||'pz'}</span></div>
+            <div style="font-size:13px;font-weight:600">${art?.nome||m.articoloNome||'—'} · <span style="font-weight:800;font-family:'IBM Plex Mono',monospace">${m.quantita} ${art?.unita||'pz'}</span></div>
             <div style="font-size:11px;color:var(--text2);margin-top:2px">${nomeUbicazione(m.from?.tipo,m.from?.id)||'—'} → ${nomeUbicazione(m.to?.tipo,m.to?.id)||'—'}</div>
             ${m.note?`<div style="font-size:11px;color:var(--text2);font-style:italic">"${m.note}"</div>`:''}
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:12px">
             <div style="font-size:10px;font-weight:700;color:${t.colore};background:${t.colore}18;border:1px solid ${t.colore}30;border-radius:4px;padding:2px 7px;margin-bottom:4px">${t.label}</div>
-            <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${fdate(m.data)}</div>
+            <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${fdate(m.data)}</div>
           </div>
           <button onclick="eliminaMovimento('${m.id}')" class="bd" style="font-size:11px;padding:4px 8px;margin-left:8px">✕</button>
         </div>`;
@@ -2927,17 +2927,17 @@ function apriDistribuzioneStock(risorsaId){
   ];
 
   document.getElementById('distrib-info').innerHTML=`
-    <b>${r.nome}</b> · totale: <span style="color:var(--teal);font-family:'DM Mono',monospace;font-weight:700">${tot} ${r.unit||'pz'}</span><br>
+    <b>${r.nome}</b> · totale: <span style="color:var(--teal);font-family:'IBM Plex Mono',monospace;font-weight:700">${tot} ${r.unit||'pz'}</span><br>
     <span style="font-size:11px">Inserisci quanti pezzi si trovano in ogni ubicazione. La somma deve essere ≤ ${tot}.</span>`;
 
   document.getElementById('distrib-righe').innerHTML=ubs.map(u=>{
     const qAttuale=stato[u.key]?.articoli?.[art.id]||0;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--brd)">
       <div style="flex:1;font-size:13px">${u.label}</div>
       <input type="number" min="0" max="${tot}" value="${qAttuale}"
         data-ubkey="${u.key}" data-ubtipo="${u.tipo}" data-ubid="${u.id}"
         oninput="aggiornaTotaleDistrib(${tot},'${r.unit||'pz'}')"
-        style="width:90px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:7px 10px;outline:none;text-align:right">
+        style="width:90px;background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;padding:7px 10px;outline:none;text-align:right">
       <span style="font-size:12px;color:var(--text2);width:30px">${r.unit||'pz'}</span>
     </div>`;
   }).join('');
@@ -2953,7 +2953,7 @@ function aggiornaTotaleDistrib(tot, unit){
   const el=document.getElementById('distrib-totale');
   const resto=tot-somma;
   const ok=somma<=tot;
-  el.innerHTML=`Totale indicato: <b style="color:${ok?'var(--green)':'var(--red)'};font-family:'DM Mono',monospace">${somma} ${unit}</b> di ${tot} ${unit}
+  el.innerHTML=`Totale indicato: <b style="color:${ok?'var(--green)':'var(--red)'};font-family:'IBM Plex Mono',monospace">${somma} ${unit}</b> di ${tot} ${unit}
     ${!ok?`<span style="color:var(--red)"> · ⚠ Supera il totale di ${somma-tot}</span>`:''}
     ${ok&&resto>0?`<span style="color:var(--text2)"> · ${resto} non ancora localizzati (restano in deposito)</span>`:''}`;
 }
@@ -3402,10 +3402,10 @@ function cliDettTab(tab){
         <th style="padding:6px;border-bottom:1px solid var(--brd)">Dal → Al</th>
       </tr></thead>
       <tbody>${attrAll.map(a=>`<tr>
-        <td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.04)">${a.cantiere}</td>
-        <td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.04)">${a.tipo}</td>
-        <td style="padding:6px;text-align:center;border-bottom:1px solid rgba(255,255,255,.04)">${a.quantita}</td>
-        <td style="padding:6px;font-size:11px;color:var(--text2);border-bottom:1px solid rgba(255,255,255,.04)">${fdate(a.from)} → ${fdate(a.to)}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--brd)">${a.cantiere}</td>
+        <td style="padding:6px;border-bottom:1px solid var(--brd)">${a.tipo}</td>
+        <td style="padding:6px;text-align:center;border-bottom:1px solid var(--brd)">${a.quantita}</td>
+        <td style="padding:6px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--brd)">${fdate(a.from)} → ${fdate(a.to)}</td>
       </tr>`).join('')}</tbody>
     </table>`
     :'<div class="empty">Nessuna fornitura attrezzature per questo cliente</div>';
@@ -4103,7 +4103,7 @@ function renderMezziDB(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
             <div>
               <div class="card-title">${m.nome}</div>
-              <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${m.targa||'—'} ${m.anno?'· '+m.anno:''}</div>
+              <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${m.targa||'—'} ${m.anno?'· '+m.anno:''}</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
               <span class="bx ${STATO_MEZZO_BADGE[m.stato]||'bz'}">${m.stato||'disponibile'}</span>
@@ -4533,11 +4533,11 @@ function renderInterferenzeFascia(da, al, cantieri, startTs, totMs){
     const col = lv===2?'#e85454':lv===1?'#e8b84b':'transparent';
     const titolo = lv===2?`${Object.keys(inf.persone).length?Object.keys(inf.persone).length+' persone doppie ':''}${inf.risorse.length?inf.risorse.length+' risorse in rosso':''}`.trim()
                  : lv===1?inf.eventi.length+' eventi insieme':'';
-    celle+=`<div onclick="apriInterferenzeGiorno('${g}')" title="${g}${titolo?' — '+titolo:''}" style="flex:1;height:14px;cursor:pointer;border-right:1px solid rgba(255,255,255,.04);background:${col};${lv===2?'box-shadow:inset 0 0 0 1px #ff8a8a;':''}"></div>`;
+    celle+=`<div onclick="apriInterferenzeGiorno('${g}')" title="${g}${titolo?' — '+titolo:''}" style="flex:1;height:14px;cursor:pointer;border-right:1px solid var(--brd);background:${col};${lv===2?'box-shadow:inset 0 0 0 1px #ff8a8a;':''}"></div>`;
     cur.setDate(cur.getDate()+1);
   }
   const noteR2=(typeof R2==='undefined'||!R2.loaded)?' <span style="font-weight:400">(risorse in caricamento…)</span>':'';
-  return `<div style="display:flex;align-items:center;margin-left:0;border:1px solid var(--brd);border-top:none;background:rgba(255,255,255,.02)">
+  return `<div style="display:flex;align-items:center;margin-left:0;border:1px solid var(--brd);border-top:none;background:var(--brd)">
     <div style="width:180px;min-width:180px;padding:2px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">⚡ Interferenze${noteR2}</div>
     <div style="flex:1;display:flex">${celle}</div>
   </div>`;
@@ -4739,7 +4739,7 @@ function renderGanttSettimana(wrap){
         <span style="white-space:nowrap">${fdate(c.periodoInizio)}→${fdate(c.periodoFine || c.periodoInizio)}${ris ? ' · ' + ris + ' ris.' : ''}</span>
       </div>`;
     }).join('');
-    fasciaInPiedi = `<div style="border-bottom:1px solid var(--brd);background:rgba(255,255,255,.03)">
+    fasciaInPiedi = `<div style="border-bottom:1px solid var(--brd);background:var(--brd)">
       <div onclick="toggleGanttInPiedi()" style="padding:5px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text2);cursor:pointer">
         ${_ganttInPiediAperto ? '▾' : '▸'} 📦 In piedi — materiale impegnato (${inPiedi.length}) <span style="font-weight:400;text-transform:none;letter-spacing:0">· nessuna lavorazione questa settimana</span>
       </div>
@@ -4789,7 +4789,7 @@ function renderGanttSettimana(wrap){
       style="flex:1;border-right:1px solid var(--brd);text-align:center;font-size:11px;font-weight:700;padding:3px 0;background:${col};color:${txt}">
       ${f.n || '—'}${f.est ? `<span style="color:${sfora || teso ? '#fff' : 'var(--gold)'};font-size:10px"> +${f.est}🤝</span>` : ''}${f.senza ? `<span style="font-weight:400;font-size:9px"> +${f.senza}?</span>` : ''}</div>`;
   }).join('');
-  const fasciaFab = `<div style="display:flex;align-items:center;border:1px solid var(--brd);border-top:none;background:rgba(255,255,255,.02)">
+  const fasciaFab = `<div style="display:flex;align-items:center;border:1px solid var(--brd);border-top:none;background:var(--brd)">
     <div style="width:180px;min-width:180px;padding:3px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">👷 Fabbisogno${org ? ` <span style="font-weight:400">/ ${org} in organico</span>` : ''}</div>
     <div style="flex:1;display:flex">${celleFab}</div>
   </div>`;
@@ -4797,7 +4797,7 @@ function renderGanttSettimana(wrap){
   wrap.innerHTML = `
     ${_ganttBarraVista()}
     <div style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden">
-      <div style="display:flex;margin-left:180px;background:rgba(255,255,255,.02);border:1px solid var(--brd);border-bottom:none">${header}</div>
+      <div style="display:flex;margin-left:180px;background:var(--brd);border:1px solid var(--brd);border-bottom:none">${header}</div>
       ${renderInterferenzeFascia(lun, dom, tutti, 0, 1)}
       ${fasciaFab}
       <div style="border:1px solid var(--brd);border-top:none;border-radius:0 0 var(--r) var(--r)">
@@ -4877,7 +4877,7 @@ function renderGantt(){
   }
   const headerHtml = `
     <div style="display:flex;margin-left:180px;background:rgba(0,180,166,.08);border-radius:4px 4px 0 0;border:1px solid var(--brd);border-bottom:none">${buildMesiHeader()}</div>
-    <div style="display:flex;margin-left:180px;background:rgba(255,255,255,.02);border:1px solid var(--brd);border-top:none;border-bottom:none">${subHeader}</div>
+    <div style="display:flex;margin-left:180px;background:var(--brd);border:1px solid var(--brd);border-top:none;border-bottom:none">${subHeader}</div>
   `;
 
   const righe = cantieri.map((c,idx)=>{
@@ -4908,7 +4908,7 @@ function renderGantt(){
 
     // intestazioni delle due fasce
     let banda='';
-    if(idx===0 && continuativi.length) banda=`<div style="padding:5px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text2);background:rgba(255,255,255,.03);border-bottom:1px solid var(--brd)">🔁 Continuativi — sottofondo (${continuativi.length})</div>`;
+    if(idx===0 && continuativi.length) banda=`<div style="padding:5px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text2);background:var(--brd);border-bottom:1px solid var(--brd)">🔁 Continuativi — sottofondo (${continuativi.length})</div>`;
     if(idx===continuativi.length && eventi.length) banda=`<div style="padding:5px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);background:rgba(0,180,166,.07);border-bottom:1px solid var(--brd)">🎪 Eventi (${eventi.length})</div>`;
 
     return banda+`
@@ -5132,7 +5132,7 @@ function renderCantieri(){
         <div style="cursor:pointer;flex:1" onclick="apriModificaCantiere('${c.id}')">
           <div class="card-title">${c.nome}${c.archiviato?` <span style="font-size:11px;color:var(--text2);font-weight:400">🗄 Archiviato</span>`:''}
           </div>
-          <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px">
+          <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:2px">
             ${c.committente||'—'} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}
           </div>
         </div>
@@ -6472,7 +6472,7 @@ function renderOggi(){
     html += `<div class="sl" style="margin-top:18px">Domani (${domaniInterventi.length} interventi)</div>`;
     html += domaniInterventi.map(iv=>`
       <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border:1px solid var(--brd);border-radius:var(--r2);margin-bottom:7px;font-size:12px">
-        <span style="font-family:'DM Mono',monospace;color:var(--teal);font-weight:700">${iv.oraInizio||'08:00'}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;color:var(--teal);font-weight:700">${iv.oraInizio||'08:00'}</span>
         <div><b>${iv.descrizione||'Intervento'}</b><br><span style="color:var(--text2)">${iv.cantiereNome}${squadraArray(iv).length?' · '+squadraArray(iv).join(', '):''}</span></div>
       </div>`).join('');
   }
@@ -6512,7 +6512,7 @@ function renderInventario(){
         <div style="font-size:13px;font-weight:700;color:#7aa0ff">📦 ${nonCollegate.length} risorsa${nonCollegate.length!==1?'e':''} non ancora in Magazzino</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">Collega le risorse al Magazzino per tracciare dove si trovano fisicamente</div>
       </div>
-      <button onclick="migraTutteAlMagazzino()" style="background:rgba(122,160,255,.15);border:1px solid rgba(122,160,255,.35);border-radius:8px;padding:8px 14px;color:#7aa0ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;white-space:nowrap">📦 Collega tutte</button>
+      <button onclick="migraTutteAlMagazzino()" style="background:rgba(122,160,255,.15);border:1px solid rgba(122,160,255,.35);border-radius:8px;padding:8px 14px;color:#7aa0ff;font-size:12px;font-weight:700;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;white-space:nowrap">📦 Collega tutte</button>
     </div>`;
   }
 
@@ -6536,7 +6536,7 @@ function renderInventario(){
                 🏭 ${magDisp} in deposito
                 <button onclick="apriDistribuzioneStock('${r.id}')" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:10px;margin-left:4px;text-decoration:underline">📍 dove sono?</button>
                </div>`
-            : `<button onclick="collegaRisorsaAlMagazzino('${r.id}')" style="width:100%;margin-top:8px;background:rgba(122,160,255,.1);border:1px dashed rgba(122,160,255,.4);border-radius:7px;padding:6px;color:#7aa0ff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif">
+            : `<button onclick="collegaRisorsaAlMagazzino('${r.id}')" style="width:100%;margin-top:8px;background:rgba(122,160,255,.1);border:1px dashed rgba(122,160,255,.4);border-radius:7px;padding:6px;color:#7aa0ff;font-size:11px;font-weight:700;cursor:pointer;font-family:'IBM Plex Sans',sans-serif">
                 📦 Collega al Magazzino
                </button>`}
           ${r.note?`<div class="sb2">${r.note}</div>`:''}
