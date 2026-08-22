@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otto8100-planning-v4';
+const CACHE_NAME = 'otto8100-planning-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -9,7 +9,6 @@ const ASSETS = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      // cache solo i file locali, le CDN possono fallire in offline
       return cache.addAll(['./','./index.html']).catch(()=>{});
     })
   );
@@ -26,39 +25,38 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // solo GET, solo stessa origine o CDN note
   if(e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  // per Supabase e Google API: network-first, non cachare
   if(url.hostname.includes('supabase') || url.hostname.includes('google') || url.hostname.includes('googleapis')) return;
 
-  // Per la pagina principale (navigazione e index.html): sempre rete-prima,
-  // così ogni aggiornamento si vede già al primo refresh — la cache serve
-  // solo come fallback quando sei offline. Questa è la differenza chiave
-  // rispetto a prima, dove la pagina restava bloccata sulla versione
-  // salvata in cache finché non si ricaricava una seconda volta.
+  // Pagina principale: rete-prima.
   const isPagina = e.request.mode === 'navigate' || url.pathname.endsWith('index.html') || url.pathname.endsWith('/');
   if(isPagina){
     e.respondWith(
       fetch(e.request).then(res => {
-        if(res && res.status === 200){
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        }
+        if(res && res.status === 200){ const clone = res.clone(); caches.open(CACHE_NAME).then(c => c.put(e.request, clone)); }
         return res;
       }).catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Per il resto (font, librerie CDN): cache-first va bene, cambiano raramente.
+  // Icone e manifest: rete-prima, così un logo nuovo si vede subito.
+  if(url.pathname.endsWith('.png') || url.pathname.endsWith('manifest.json')){
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if(res && res.status === 200){ const clone = res.clone(); caches.open(CACHE_NAME).then(c => c.put(e.request, clone)); }
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Resto (font, CDN): cache-first.
   e.respondWith(
     caches.match(e.request).then(cached => {
       const networkFetch = fetch(e.request).then(res => {
-        if(res && res.status === 200 && res.type !== 'opaque'){
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        }
+        if(res && res.status === 200 && res.type !== 'opaque'){ const clone = res.clone(); caches.open(CACHE_NAME).then(c => c.put(e.request, clone)); }
         return res;
       }).catch(() => cached);
       return cached || networkFetch;
