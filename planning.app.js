@@ -1826,7 +1826,13 @@ async function r2Carica(){
   try{
     const q = (t)=>fetch(`${SUPABASE_URL}/rest/v1/${t}?select=*`, {headers:R2_HDR, cache:'no-cache'}).then(r=>r.ok?r.json():[]);
     const [dep,ris,gia,all] = await Promise.all([q('depositi'),q('risorse'),q('giacenze'),q('allocazioni')]);
-    R2.depositi=dep; R2.risorse=ris; R2.giacenze=gia; R2.allocazioni=all; R2.loaded=true;
+    // Il modulo Risorse del Planning gestisce SOLO i materiali a quantità.
+    // Attrezzi (gestione='univoca') e consumabili (gestione='consumabile'), unificati
+    // nella tabella condivisa, sono di competenza dell'app "Risorse & Depositi".
+    const soloMateriali = (ris||[]).filter(r=> r.gestione!=='univoca' && r.gestione!=='consumabile');
+    const idMateriali = new Set(soloMateriali.map(r=>r.id));
+    R2.depositi=dep; R2.risorse=soloMateriali; R2.giacenze=gia;
+    R2.allocazioni=(all||[]).filter(a=> idMateriali.has(a.risorsa_id)); R2.loaded=true;
   }catch(e){ console.warn('r2Carica', e); }
 }
 
