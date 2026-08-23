@@ -1826,7 +1826,13 @@ async function r2Carica(){
   try{
     const q = (t)=>fetch(`${SUPABASE_URL}/rest/v1/${t}?select=*`, {headers:R2_HDR, cache:'no-cache'}).then(r=>r.ok?r.json():[]);
     const [dep,ris,gia,all] = await Promise.all([q('depositi'),q('risorse'),q('giacenze'),q('allocazioni')]);
-    R2.depositi=dep; R2.risorse=ris; R2.giacenze=gia; R2.allocazioni=all; R2.loaded=true;
+    // Il modulo Risorse del Planning gestisce SOLO i materiali a quantità.
+    // Attrezzi (gestione='univoca') e consumabili (gestione='consumabile'), unificati
+    // nella tabella condivisa, sono di competenza dell'app "Risorse & Depositi".
+    const soloMateriali = (ris||[]).filter(r=> r.gestione!=='univoca' && r.gestione!=='consumabile');
+    const idMateriali = new Set(soloMateriali.map(r=>r.id));
+    R2.depositi=dep; R2.risorse=soloMateriali; R2.giacenze=gia;
+    R2.allocazioni=(all||[]).filter(a=> idMateriali.has(a.risorsa_id)); R2.loaded=true;
   }catch(e){ console.warn('r2Carica', e); }
 }
 
@@ -1878,12 +1884,13 @@ function movTrasferimento(allocazioni, risorsaId, daCantiereId, daCantiereNome, 
   insert.push({risorsa_id:risorsaId, deposito_id:null, cantiere_id:aCantiereId, cantiere_nome:aCantiereNome,
     qty:qty, data_uscita:data, data_rientro:null, stato:'programmata',
     da_tipo:'cantiere', da_id:daCantiereId, da_nome:daCantiereNome,
+    a_tipo:'cantiere', a_id:aCantiereId, a_nome:aCantiereNome,
     origine:origine||null, aggiornato_il:new Date().toISOString()});
   return {patch, insert};
 }
 // RIENTRO al deposito: chiude l'allocazione
 function movRientro(allocId, data){
-  return {patch:[{id:allocId, body:{data_rientro:data, stato:'rientrata', aggiornato_il:new Date().toISOString()}}], insert:[]};
+  return {patch:[{id:allocId, body:{data_rientro:data, data_rientro_effettiva:data, stato:'rientrata', aggiornato_il:new Date().toISOString()}}], insert:[]};
 }
 /* ═══════════ fine ALLOC_LIB ═══════════ */
 
@@ -2220,9 +2227,15 @@ async function r2SalvaAlloc(){
   if(!rid||!q||!uscita){ toast('Risorsa, quantità e data uscita obbligatorie'); return; }
   const cid=document.getElementById('r2a-cantiere').value;
   const cNome=(DB.cantieri||[]).find(c=>c.id===cid)?.nome||null;
-  const payload={ risorsa_id:rid, deposito_id:document.getElementById('r2a-deposito').value||null,
+  const depId=document.getElementById('r2a-deposito').value||null;
+  const depNome=(R2.depositi.find(d=>d.id===depId)||{}).nome||'Deposito';
+  const payload={ risorsa_id:rid, deposito_id:depId,
     cantiere_id:cid||null, cantiere_nome:cNome, qty:q, data_uscita:uscita,
-    data_rientro:document.getElementById('r2a-rientro').value||null, aggiornato_il:new Date().toISOString() };
+    data_rientro:document.getElementById('r2a-rientro').value||null,
+    // campi "viaggio" (app Risorse & Depositi): provenienza deposito → destinazione
+    da_tipo:'deposito', da_id:depId, da_nome:depNome,
+    a_tipo: cid?'cantiere':'deposito', a_id: cid||depId, a_nome: cid?cNome:depNome,
+    aggiornato_il:new Date().toISOString() };
   try{
     if(_r2EditAlloc){ await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${_r2EditAlloc}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(payload)}); }
     else { await fetch(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:R2_HDR,body:JSON.stringify(payload)}); }
@@ -4419,7 +4432,7 @@ async function r2RientroSi(id){
   // risorsa rientrata oggi: chiude l'allocazione a oggi
   try{
     await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'PATCH',headers:R2_HDR,
-      body:JSON.stringify({data_rientro:r2today(),stato:'rientrata',aggiornato_il:new Date().toISOString()})});
+      body:JSON.stringify({data_rientro:r2today(),data_rientro_effettiva:r2today(),stato:'rientrata',aggiornato_il:new Date().toISOString()})});
     R2.loaded=false; await r2Carica(); r2AggiornaBadgeRientri(); r2ApriRientri();
     toast('✓ Risorsa rientrata a deposito');
   }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
