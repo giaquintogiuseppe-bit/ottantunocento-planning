@@ -279,6 +279,7 @@ function renderDash(){
     .sort((a,b)=>(a.periodoInizio||"").localeCompare(b.periodoInizio||"")).slice(0,12);
   const _assegnato = c => !!((c.personaleAssegnato&&c.personaleAssegnato.length) || (c.mezzi&&c.mezzi.length) || (c.interventi||[]).some(iv=>squadraArray(iv).length>0));
   const _dashCard = c => {
+    const _tipiHtml = planBadgeTipi(c);
     const b = statoBadge(c);
     const nI = (c.interventi||[]).length;
     const ass = _assegnato(c);
@@ -289,7 +290,8 @@ function renderDash(){
         <div class="card-title" style="font-size:15px;line-height:1.2">${c.nome||'—'}</div>
         <span class="bx ${b.cls}" style="white-space:nowrap">${b.txt}</span>
       </div>
-      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 8px">${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
+      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 6px">${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
+      ${_tipiHtml}
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${quando?`<span class="bx bz">🗓 ${quando}</span>`:''}
         ${nI?`<span class="bx bz">🔨 ${nI}</span>`:''}
@@ -1819,6 +1821,22 @@ let _r2Tab = 'disp';
 let _r2EditRisorsa = null;
 let _r2EditAlloc = null;
 let _r2AfterSave = null;
+
+// ── Commesse: badge tipo (multipli) — condiviso con Gestionale/Mobile ──
+const PLAN_TIPO_META = {
+  evento:   {ic:'🎪', lbl:'Evento',    col:'var(--teal)', bg:'rgba(14,124,102,.14)'},
+  noleggio: {ic:'🔄', lbl:'Noleggio',  col:'#7aa0ff',     bg:'rgba(122,160,255,.16)'},
+  fornitura:{ic:'📦', lbl:'Fornitura', col:'var(--gold)', bg:'rgba(232,184,75,.15)'},
+  servizio: {ic:'🚚', lbl:'Servizio',  col:'#d68a3a',     bg:'rgba(214,138,58,.15)'},
+  interno:  {ic:'🏠', lbl:'Interno',   col:'var(--text2)',bg:'rgba(120,140,160,.14)'},
+};
+function planCantTipi(c){ const t=c&&c.tipoCant; if(Array.isArray(t)) return t.filter(x=>PLAN_TIPO_META[x]); if(typeof t==='string'&&PLAN_TIPO_META[t]) return [t]; return []; }
+function planBadgeTipi(c){
+  const tipi=planCantTipi(c);
+  let h=tipi.map(t=>{const m=PLAN_TIPO_META[t];return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:${m.bg};color:${m.col};white-space:nowrap">${m.ic} ${m.lbl}</span>`;}).join('');
+  if(c&&c.continuativa) h+=`<span style="font-size:9px;font-weight:700;color:var(--teal);border:1px solid var(--teal);border-radius:4px;padding:0 4px">CONTINUATIVA</span>`;
+  return h?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${h}</div>`:'';
+}
 
 function r2today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
