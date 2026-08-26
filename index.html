@@ -731,7 +731,17 @@ tbody td{padding:10px 14px;vertical-align:middle}
                 <option value="perso">❌ Perso / Rifiutato</option>
               </select>
             </div>
-            <div><label>Pianificazione nel Gantt</label>
+            <div><label>Tipo commessa</label>
+              <select id="mc-natura">
+                <option value="">—</option>
+                <option value="noleggio">🔄 Noleggio</option>
+                <option value="evento">🎪 Allestimento / Evento</option>
+                <option value="servizio">🚚 Facchinaggio / Servizio</option>
+                <option value="fornitura">📦 Fornitura beni/servizi</option>
+                <option value="interno">🏠 Interno / Relazionale</option>
+              </select>
+            </div>
+            <div><label>Modalità pianificazione (Gantt)</label>
               <select id="mc-tipocant">
                 <option value="">🤖 Automatico (oltre 21 giorni = continuativo)</option>
                 <option value="evento">🎪 Evento (barra piena)</option>

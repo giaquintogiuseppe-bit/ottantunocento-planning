@@ -4487,7 +4487,9 @@ async function r2RientroConferma(id){
 // Tipo di pianificazione: evento (barra piena) o continuativo (sfondo sottile).
 // Manuale se impostato sul cantiere, altrimenti automatico: oltre 21 giorni = continuativo.
 function tipoCantiere(c){
-  if(c.tipoCant==='evento'||c.tipoCant==='continuativo') return c.tipoCant;
+  if(c.continuativa===true) return 'continuativo';
+  if(c.continuativa===false) return 'evento';
+  if(c.tipoCant==='evento'||c.tipoCant==='continuativo') return c.tipoCant; // legacy (vecchia stringa)
   if(!c.periodoInizio) return 'evento';
   const gg=Math.round((new Date(c.periodoFine||c.periodoInizio)-new Date(c.periodoInizio))/86400000)+1;
   return gg>21?'continuativo':'evento';
@@ -5251,7 +5253,8 @@ function apriModificaCantiere(id){
   if(ritiroEl) ritiroEl.value=c.dataRitiro||'';
   toggleLungoPeriodo();
   document.getElementById('mc-stato').value = c.stato||'da confermare';
-  const tcSel=document.getElementById('mc-tipocant'); if(tcSel) tcSel.value=c.tipoCant||'';
+  const tcSel=document.getElementById('mc-tipocant'); if(tcSel) tcSel.value = c.continuativa===true?'continuativo':(c.continuativa===false?'evento':((c.tipoCant==='evento'||c.tipoCant==='continuativo')?c.tipoCant:''));
+  const naSel=document.getElementById('mc-natura'); if(naSel){ const _nat=Array.isArray(c.tipoCant)?(c.tipoCant[0]||''):(['noleggio','evento','servizio','fornitura','interno'].includes(c.tipoCant)?c.tipoCant:''); naSel.value=_nat; }
   document.getElementById('mc-inizio').value = c.periodoInizio||'';
   document.getElementById('mc-fine').value = c.periodoFine||'';
   // mc-ricavo e mc-costo rimossi dal Planning
@@ -5782,7 +5785,8 @@ function salvaCantiere(){
     tipo: document.getElementById('mc-tipo')?.value||'standard',
     dataRitiro: document.getElementById('mc-ritiro')?.value||'',
     stato: statoFinale,
-    tipoCant: document.getElementById('mc-tipocant')?.value||'',
+    tipoCant: (function(){ const v=document.getElementById('mc-natura')?.value||''; return v?[v]:[]; })(),
+    continuativa: (function(){ const g=document.getElementById('mc-tipocant')?.value||''; return g==='continuativo'?true:(g==='evento'?false:null); })(),
     periodoInizio: document.getElementById('mc-inizio').value || today(),
     periodoFine: nuovaFine,
     clienteId: document.getElementById('mc-cliente-id')?.value||'',
