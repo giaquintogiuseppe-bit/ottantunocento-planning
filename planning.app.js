@@ -290,7 +290,7 @@ function renderDash(){
         <div class="card-title" style="font-size:15px;line-height:1.2">${c.nome||'—'}</div>
         <span class="bx ${b.cls}" style="white-space:nowrap">${b.txt}</span>
       </div>
-      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 6px">${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
+      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 6px">${c.codice?'<span style="color:var(--accent,#6f7ce8)">'+c.codice+'</span> · ':''}${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
       ${_tipiHtml}
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${quando?`<span class="bx bz">🗓 ${quando}</span>`:''}
@@ -306,7 +306,7 @@ function renderDash(){
   _dc.innerHTML =
     (_inCorsoC.length ? `<div class="sl" style="margin-top:2px">🔵 Impegnati ora (${_inCorsoC.length})</div>`+_griglia(_inCorsoC) : '')
     + (_prossimiC.length ? `<div class="sl" style="margin-top:14px">🟡 Prossimi da impegnare (${_prossimiC.length})</div>`+_griglia(_prossimiC) : '')
-    + ((!_inCorsoC.length && !_prossimiC.length) ? `<div class="ri"><div class="rls">Nessun cantiere attivo — vai su "Cantieri" per aggiungerne uno.</div></div>` : '');
+    + ((!_inCorsoC.length && !_prossimiC.length) ? `<div class="ri"><div class="rls">Nessuna commessa attiva — vai su "Commesse" per aggiungerne una.</div></div>` : '');
 
   // prossimi interventi su tutti i cantieri, ordinati per data
   const interventi = [];
@@ -5225,7 +5225,7 @@ function ripristinaCantiereArchivio(id){
 
 function apriNuovoCantiere(){
   _cantEditId = null;
-  document.getElementById('modal-cant-title').textContent = 'Nuovo cantiere';
+  document.getElementById('modal-cant-title').textContent = 'Nuova commessa';
   document.getElementById('mc-btn-elimina').style.display = 'none';
   resetFormCantiere();
   renderCarburanteCantiere(null, document.getElementById('mc-carburante'));
@@ -5239,7 +5239,7 @@ function apriModificaCantiere(id){
   const c = (DB.cantieri||[]).find(x=>x.id===id);
   if(!c) return;
   _cantEditId = id;
-  document.getElementById('modal-cant-title').textContent = 'Modifica cantiere';
+  document.getElementById('modal-cant-title').textContent = 'Modifica commessa';
   document.getElementById('mc-btn-elimina').style.display = '';
   // compila form
   document.getElementById('mc-nome').value = c.nome||'';

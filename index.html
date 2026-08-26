@@ -456,7 +456,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="ni active" onclick="nav('dash')">⬛ Dashboard</div>
   <div class="ni" onclick="nav('oggi')">📋 Oggi</div>
   <div class="ns">Pianificazione</div>
-  <div class="ni" onclick="nav('cantieri')">🏗️ Cantieri</div>
+  <div class="ni" onclick="nav('cantieri')">🏗️ Commesse</div>
   <div class="ni" onclick="nav('calendario')">📅 Calendario</div>
   <div class="ni" onclick="nav('import-cal')">📥 Importa da Calendar</div>
   <div class="ni" onclick="nav('risorse2')">🪑 Risorse & Depositi</div>
@@ -504,7 +504,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
     <div class="pt">Dashboard</div>
     <div class="ps" id="ds-sub"></div>
     <div class="dg" id="ds-kpi"></div>
-    <div class="sl">Cantieri in corso / in arrivo</div>
+    <div class="sl">Commesse in corso / in arrivo</div>
     <div class="rl" id="ds-cant" style="margin-bottom:18px"></div>
     <div class="sl">Prossimi interventi</div>
     <div class="rl" id="ds-interventi"></div>
@@ -512,8 +512,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   <!-- CANTIERI -->
   <div id="pg-cantieri" class="pg">
-    <div class="pt">Cantieri</div>
-    <div class="ps">Tutti i cantieri pianificati e in corso</div>
+    <div class="pt">Commesse</div>
+    <div class="ps">Tutte le commesse pianificate e in corso</div>
 
     <!-- FILTRI + AZIONI -->
     <div style="display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
@@ -531,7 +531,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <input type="checkbox" id="cant-mostra-conclusi" onchange="renderCantieri()" style="accent-color:var(--teal)">
         🗄 Mostra archivio (conclusi e persi)
       </label>
-      <button class="bp" onclick="apriNuovoCantiere()" style="margin-left:auto">➕ Nuovo cantiere</button>
+      <button class="bp" onclick="apriNuovoCantiere()" style="margin-left:auto">➕ Nuova commessa</button>
     </div>
 
     <!-- LISTA CANTIERI -->
@@ -694,7 +694,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div class="mo" id="modal-cantiere">
     <div class="md" style="max-width:700px">
       <div class="mh">
-        <h3 id="modal-cant-title">Nuovo cantiere</h3>
+        <h3 id="modal-cant-title">Nuova commessa</h3>
         <button class="mc" onclick="closeModal('modal-cantiere')">✕</button>
       </div>
       <div class="mb">
