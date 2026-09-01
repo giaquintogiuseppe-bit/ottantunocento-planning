@@ -2447,14 +2447,28 @@ async function renderCarburanteCantiere(nomeCantiere, el){
       return;
     }
     const tutti = await res.json();
-    // corrispondenza tollerante: il nome scritto nel modulo può essere una parte
-    // del nome del cantiere o viceversa ("Reggia" ↔ "Gala Rotary Reggia di Caserta")
+    // Corrispondenza SICURA fra il nome del cantiere e il campo "cantiere" del rifornimento.
+    // Prima era una includes() bidirezionale: un cantiere nuovo tipo "medioevale Gaeta"
+    // catturava TUTTI i rifornimenti taggati "Gaeta" (perché "medioevale gaeta".includes("gaeta")).
+    // Ora: match esatto (normalizzato), oppure — solo per tollerare abbreviazioni multi-parola
+    // ("Reggia Caserta" ↔ "Gala … Reggia di Caserta") — il nome più corto deve avere ALMENO
+    // 2 parole e comparire per intero, parola per parola, nell'altro. Una singola parola comune
+    // (es. "gaeta") non basta più a collegare due cantieri diversi.
     const norm = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ');
+    const toks = s => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
     const nc = norm(nomeCantiere);
-    const righe = tutti.filter(r=>{
-      const rc = norm(r.cantiere);
-      return rc && nc && (rc===nc || nc.includes(rc) || rc.includes(nc));
-    });
+    const ntok = toks(nomeCantiere);
+    const cantMatch = rc => {
+      const rcn = norm(rc);
+      if(!rcn || !nc) return false;
+      if(rcn === nc) return true;                       // esatto (case-insensitive)
+      const rtok = toks(rc);
+      const [short, long] = rtok.length <= ntok.length ? [rtok, ntok] : [ntok, rtok];
+      if(short.length < 2) return false;                // una parola sola non collega
+      const set = new Set(long);
+      return short.every(t => set.has(t));              // tutte le parole del più corto nel più lungo
+    };
+    const righe = tutti.filter(r => cantMatch(r.cantiere));
     if(!righe.length){
       el.innerHTML='<div style="color:var(--text2);font-size:12px;font-style:italic">Nessun rifornimento imputato a questo cantiere. I dati arrivano dal modulo di riconciliazione carburanti (campo "cantiere").</div>';
       return;
