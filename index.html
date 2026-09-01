@@ -1802,6 +1802,39 @@ tbody td{padding:10px 14px;vertical-align:middle}
   s.onerror=function(){ document.body.innerHTML='<div style="padding:40px;font-family:sans-serif;color:#e0e6ed;background:#0a1628;min-height:100vh"><h2>⚠ Manca planning.app.js</h2><p>Carica anche il file <b>planning.app.js</b> nel repo (accanto a index.html).</p></div>'; };
   document.body.appendChild(s);
 })();
+
+// ── Stop autofill contatti del telefono (rubrica) sui campi di testo ──
+// Sui campi dove si scrive un nome dipendente (squadra cantiere, personale…)
+// iOS/Android proponevano i nominativi della rubrica sopra al campo. Li spegniamo.
+(function(){
+  var NO=['date','time','number','checkbox','radio','file','range','color','password','hidden'];
+  function kill(root){
+    (root||document).querySelectorAll('input').forEach(function(el){
+      if(el.dataset.afDone) return;
+      var t=(el.getAttribute('type')||'text').toLowerCase();
+      if(NO.indexOf(t)>=0) return;
+      el.setAttribute('autocomplete','off');
+      el.setAttribute('autocorrect','off');
+      el.setAttribute('spellcheck','false');
+      el.dataset.afDone='1';
+    });
+  }
+  function start(){
+    kill(document);
+    try{
+      new MutationObserver(function(ms){
+        for(var i=0;i<ms.length;i++){ var a=ms[i].addedNodes;
+          for(var j=0;j<a.length;j++){ var n=a[j];
+            if(n.nodeType!==1) continue;
+            if(n.matches&&n.matches('input')) kill(n.parentNode||document);
+            else if(n.querySelector&&n.querySelector('input')) kill(n);
+          }
+        }
+      }).observe(document.body,{childList:true,subtree:true});
+    }catch(e){}
+  }
+  if(document.body) start(); else document.addEventListener('DOMContentLoaded',start);
+})();
 </script>
 </body>
 </html>
