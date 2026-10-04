@@ -428,10 +428,12 @@ async function cloudCaricaOra(silenzioso=false){
     normalizzaPersonaleHR();
 
     // Auto-chiusura: se periodoFine < oggi → concluso
+    // (MAI se lo stato è stato scelto a mano: c._statoManuale, impostato da Gestionale/Mobile/Planning)
     const oggi = today();
     let modificati = 0;
     (DB.cantieri||[]).forEach(c=>{
       if(c.tipo==='lungo_periodo') return;
+      if(c._statoManuale) return;
       const fine = c.periodoFine||c.periodoInizio||'';
       if(!fine) return;
       const s=(c.stato||'').toLowerCase();
@@ -5134,6 +5136,11 @@ function statoBadge(c){
   if(c.stato === 'perso') return {cls:'br', txt:'perso'};
   const oggi = today();
   const fine = c.periodoFine || c.periodoInizio;
+  // stato scelto a mano (es. riaperto dopo la data di fine): si mostra quello, non il calcolo dalle date
+  if(c._statoManuale && c.stato && c.stato!=='concluso'){
+    const cls={'in corso':'bt','in arrivo':'bz'}[c.stato]||'bo';
+    return {cls, txt:c.stato};
+  }
   if(c.stato === 'concluso' || fine < oggi) return {cls:'br', txt:'concluso'};
   if(c.periodoInizio <= oggi && fine >= oggi) return {cls:'bt', txt:'in corso'};
   if(c.periodoInizio > oggi) return {cls:'bz', txt:'in arrivo'};
@@ -5783,6 +5790,12 @@ function salvaCantiere(){
   const oggi = today();
   let statoFinale = document.getElementById('mc-stato').value;
   const finePrecedente = _cantEditId ? (DB.cantieri.find(c=>c.id===_cantEditId)?.periodoFine||'') : '';
+  // Stato cambiato a mano dall'utente → nessuna chiusura automatica lo sovrascrive più
+  // (se lo rimetti "concluso" o "perso", la gestione automatica riprende).
+  const _prec = _cantEditId ? DB.cantieri.find(c=>c.id===_cantEditId) : null;
+  const statoManualeNuovo = (_prec && statoFinale!==(_prec.stato||''))
+    ? (statoFinale!=='concluso' && statoFinale!=='perso')
+    : !!(_prec && _prec._statoManuale && statoFinale!=='concluso' && statoFinale!=='perso');
   const nuovaFine = document.getElementById('mc-fine').value || document.getElementById('mc-inizio').value || today();
 
   // Riapertura automatica: se lo stato era "concluso" per auto-chiusura
@@ -5799,6 +5812,8 @@ function salvaCantiere(){
     tipo: document.getElementById('mc-tipo')?.value||'standard',
     dataRitiro: document.getElementById('mc-ritiro')?.value||'',
     stato: statoFinale,
+    _statoManuale: statoManualeNuovo,
+    _autoChiuso: statoFinale==='concluso' ? !!(_prec && _prec._autoChiuso) : false,
     tipoCant: (function(){ const v=document.getElementById('mc-natura')?.value||''; return v?[v]:[]; })(),
     continuativa: (function(){ const g=document.getElementById('mc-tipocant')?.value||''; return g==='continuativo'?true:(g==='evento'?false:null); })(),
     periodoInizio: document.getElementById('mc-inizio').value || today(),
@@ -5822,7 +5837,9 @@ function salvaCantiere(){
     if(idx>=0){
       dati.id = _cantEditId;
       dati.gcalEventId = DB.cantieri[idx].gcalEventId||null;
-      DB.cantieri[idx] = dati;
+      // unisce ai campi esistenti: la scheda del Planning non conosce tutti i campi del cantiere
+      // (codice COM, preventivoRef, forniture, origine…) e sostituirlo intero li cancellava
+      DB.cantieri[idx] = Object.assign({}, DB.cantieri[idx], dati);
     }
   } else {
     dati.id = uid();
