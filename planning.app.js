@@ -2388,24 +2388,40 @@ async function r2EliminaAlloc(){
 }
 
 // ── PONTE scheda cantiere ↔ allocazioni ──
+// Catalogo completo (anche attrezzi univoci): serve per i nomi nella scheda cantiere
+let _R2_TUTTE=null;
+const _MC_STATI={programmata:['📦','da preparare','var(--gold)','rgba(232,184,75,.14)'],in_corso:['🚚','uscita','var(--teal)','rgba(14,124,102,.14)'],
+  rientrata:['✓','rientrata','var(--green)','rgba(75,232,122,.12)'],trasferita:['↪','trasferita','var(--text2)','rgba(120,140,160,.14)']};
 async function mcRenderAlloc(cantId){
   const box=document.getElementById('mc-alloc-list'); if(!box) return;
   try{
     if(!cantId){ box.innerHTML='<div style="font-size:11px;color:var(--text2)">Salva il cantiere per allocare risorse.</div>'; return; }
     if(!R2.loaded) await r2Carica();
-    const list=R2.allocazioni.filter(a=>a.cantiere_id===cantId).sort((a,b)=>(a.data_uscita||'').localeCompare(b.data_uscita||''));
-    if(!list.length){ box.innerHTML='<div style="font-size:11px;color:var(--text2)">Nessuna risorsa allocata a questo cantiere.</div>'; return; }
-    box.innerHTML=list.map(a=>{
-    const r=R2.risorse.find(x=>x.id===a.risorsa_id);
+    const [ra,rr]=await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/allocazioni?select=*&cantiere_id=eq.${encodeURIComponent(cantId)}`,{headers:R2_HDR,cache:'no-cache'}),
+      _R2_TUTTE?null:fetch(`${SUPABASE_URL}/rest/v1/risorse?select=id,nome,unita,gestione`,{headers:R2_HDR,cache:'no-cache'})
+    ]);
+    if(rr) _R2_TUTTE=rr.ok?await rr.json():[];
+    const list=(ra.ok?await ra.json():R2.allocazioni.filter(a=>a.cantiere_id===cantId))
+      .sort((a,b)=>{ const o={programmata:0,in_corso:1,rientrata:2,trasferita:3}; return (o[a.stato]??1)-(o[b.stato]??1) || (a.data_uscita||'').localeCompare(b.data_uscita||''); });
+    if(!list.length){ box.innerHTML='<div style="font-size:11px;color:var(--text2)">Nessuna attrezzatura su questo cantiere. Arrivano dal preventivo accettato o con «Alloca risorsa».</div>'; return; }
+    const cnt={}; list.forEach(a=>cnt[a.stato]=(cnt[a.stato]||0)+1);
+    const head='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+Object.keys(_MC_STATI).filter(k=>cnt[k]).map(k=>{const m=_MC_STATI[k]; return `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:${m[3]};color:${m[2]}">${m[0]} ${cnt[k]} ${m[1]}</span>`;}).join('')+'</div>';
+    box.innerHTML=head+list.map(a=>{
+    const r=(_R2_TUTTE||[]).find(x=>x.id===a.risorsa_id)||R2.risorse.find(x=>x.id===a.risorsa_id);
+    const gestibile=R2.risorse.some(x=>x.id===a.risorsa_id);   // materiali a quantità: modificabili qui
+    const st=_MC_STATI[a.stato]||['•',a.stato||'','var(--text2)','rgba(120,140,160,.14)'];
+    const prev=((a.note||'').match(/PREV-\d{4}-\d+/)||[])[0];
+    const avv=/⚠/.test(a.note||'');
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--card);border-radius:8px;margin-bottom:6px;gap:8px">
-      <div style="flex:1;min-width:0"><div style="font-size:13px"><b>${esc2(r?r.nome:'?')}</b> ×${parseFloat(a.qty)}</div>
-      <div style="font-size:11px;color:var(--gold)">📅 ${fdate(a.data_uscita)} → ${a.data_rientro?fdate(a.data_rientro):'aperta'}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px"><b>${esc2(r?r.nome:'?')}</b> ×${parseFloat(a.qty)} <span style="font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;background:${st[3]};color:${st[2]};white-space:nowrap">${st[0]} ${st[1]}</span></div>
+      <div style="font-size:11px;color:var(--gold)">📅 ${fdate(a.data_uscita)} → ${a.data_rientro?fdate(a.data_rientro):'aperta'}${prev?` <span style="color:var(--text2)">· da ${esc2(prev)}</span>`:''}${avv?' <span style="color:var(--red)">· ⚠ disponibilità insufficiente all\'ordine</span>':''}</div></div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        <button onclick="mcModAlloc('${a.id}')" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;padding:5px 8px;color:var(--text2);cursor:pointer;font-size:13px">✎</button>
-        <button onclick="mcDelAlloc('${a.id}')" style="background:rgba(232,84,84,.1);border:1px solid rgba(232,84,84,.25);border-radius:6px;padding:5px 8px;color:var(--red);cursor:pointer;font-size:13px">✕</button>
+        ${gestibile?`<button onclick="mcModAlloc('${a.id}')" style="background:var(--navy);border:1px solid var(--brd);border-radius:6px;padding:5px 8px;color:var(--text2);cursor:pointer;font-size:13px">✎</button>`:''}
+        ${a.stato==='programmata'||gestibile?`<button onclick="mcDelAlloc('${a.id}')" style="background:rgba(232,84,84,.1);border:1px solid rgba(232,84,84,.25);border-radius:6px;padding:5px 8px;color:var(--red);cursor:pointer;font-size:13px">✕</button>`:''}
       </div>
     </div>`;
-  }).join('');
+  }).join('')+'<div style="font-size:10.5px;color:var(--text2);margin-top:2px">📦 da preparare = ordinata (dal preventivo o programmata), il magazzino conferma l\'uscita dall\'app Risorse · 🚚 uscita = è sul cantiere.</div>';
   }catch(e){ box.innerHTML='<div style="font-size:11px;color:var(--text2)">Risorse allocate non caricate (offline?).</div>'; }
 }
 function mcNuovaAlloc(){
