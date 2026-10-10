@@ -270,6 +270,7 @@ function renderDash(){
     ${scadPersonale?`<div class="dc"><div class="dl" style="color:var(--red)">⚠️ Scadenze 30gg</div><div class="dv" style="color:var(--red)">${scadPersonale}</div><div class="ds"><a onclick="nav('personale')" style="color:var(--teal);cursor:pointer;font-size:11px">vedi →</a></div></div>`:''}
   `;
 
+  _caRenderBanner();
   // ── Cantieri in evidenza: card cliccabili — impegnati ora + prossimi da impegnare ──
   const _st = c => statoBadge(c).txt;
   const _attivi = [...cantieri].filter(c => _st(c)!=='concluso' && _st(c)!=='perso');
@@ -518,6 +519,8 @@ async function cloudCaricaOra(silenzioso=false){
     } else {
       if(!silenzioso) toast('Dati caricati ✓');
     }
+    // cantieri chiusi (anche in automatico) con attrezzature ancora fuori → chiedi
+    setTimeout(()=>controllaAttrezzatureCantieriChiusi(true), 900);
     aggiornaInboxBadge();
   }catch(err){
     if(!silenzioso && log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore: ${err.message}</div>`;
@@ -3249,42 +3252,174 @@ function registraUsciteMagazzinoCantiere(cantiere, attrezzature){
   toast(`✓ Uscita magazzino registrata per ${attrezzature.length} articolo${attrezzature.length!==1?'i':''}`);
 }
 
-function rientroAutomaticoCantiere(cantiereId){
-  // Chiamata quando un cantiere viene chiuso
-  // renderMagAlert già gestisce la visualizzazione dell'avviso
-  // Qui proponiamo il rientro immediato
-  const c=(DB.cantieri||[]).find(x=>x.id===cantiereId);
-  if(!c) return;
-  const stato=calcolaDisponibilita();
-  const key=`cantiere::${cantiereId}`;
-  const ub=stato[key];
-  const M=DB.magazzino;
-  const artConQta=Object.entries(ub?.articoli||{}).filter(([,q])=>q>0);
-  if(!artConQta.length) return;
+// Chiamata quando un cantiere viene chiuso: dal 10/2026 lavora sulle allocazioni
+// condivise (Risorse & Depositi), non più sul vecchio magazzino del blob.
+function rientroAutomaticoCantiere(cantiereId){ chiusuraAttrezzature(cantiereId); }
 
-  const lista=artConQta.map(([id,q])=>{
-    const art=(M.articoli||[]).find(a=>a.id===id);
-    return `  • ${q} ${art?.nome||id}`;
-  }).join('\n');
-
-  if(confirm(`📦 Il cantiere "${c.nome}" ha materiale ancora fuori:\n${lista}\n\nRegistrare il rientro in Deposito Generale?`)){
-    if(!M.movimenti) M.movimenti=[];
-    artConQta.forEach(([artId,q])=>{
-      const art=(M.articoli||[]).find(a=>a.id===artId);
-      M.movimenti.push({
-        id:'mov_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-        tipo:'RIENTRO', data:today(),
-        articoloId:artId, articoloNome:art?.nome||artId,
-        quantita:q,
-        from:{tipo:'cantiere',id:cantiereId,nome:c.nome},
-        to:{tipo:'deposito',id:'deposito_gen'},
-        note:`Rientro automatico chiusura ${c.nome}`
-      });
-    });
-    save(); cloudSalvaOra(true);
-    if(document.getElementById('pg-magazzino')?.classList.contains('active')) renderMagazzino();
-    toast(`✓ Rientro registrato per ${artConQta.length} articolo${artConQta.length!==1?'i':''}`);
+// ═══════════════════════════════════════════════════════════════
+// CHIUSURA CANTIERE → ATTREZZATURE (tabella condivisa `allocazioni`)
+// Quando un cantiere si chiude (a mano o in automatico a fine data) e ha
+// attrezzature ancora aperte, chiede per ognuna: rientrata in deposito,
+// spostata su altro cantiere, oppure "decido dopo". Le voci mai uscite
+// (ordine ancora da preparare) si possono annullare o spostare.
+// I cantieri chiusi con attrezzature aperte restano segnalati in Dashboard.
+// ═══════════════════════════════════════════════════════════════
+let _CA_PENDENTI=[];          // [{cantiere, allocs}]
+let _CA_CHIESTO_SESS=false;   // domanda automatica una volta per sessione
+function _caChiuso(c){
+  const s=(c&&c.stato||'').toLowerCase();
+  return s.includes('conclus')||s.includes('perso')||(DB._cantieriArchiviati||[]).includes(c&&c.id)||!!(c&&c.archiviato);
+}
+// "Uscita davvero": in corso, oppure una vecchia programmata (non da preventivo) con data già passata,
+// che nelle regole storiche di Risorse risulta fuori anche senza conferma.
+function _caUscita(a){ return a.stato==='in_corso' || (a.origine!=='preventivo' && (a.data_uscita||'')<=today()); }
+function _caGiornoPrima(d){ const x=new Date(d+'T12:00'); x.setDate(x.getDate()-1); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+async function _caRisorseTutte(){
+  if(_R2_TUTTE) return _R2_TUTTE;
+  try{ const r=await fetch(`${SUPABASE_URL}/rest/v1/risorse?select=id,nome,unita,gestione`,{headers:R2_HDR,cache:'no-cache'}); _R2_TUTTE=r.ok?await r.json():[]; }catch(e){ _R2_TUTTE=[]; }
+  return _R2_TUTTE;
+}
+async function _caAperteDi(cantIds){
+  if(!cantIds.length) return [];
+  const lista=cantIds.map(id=>'"'+String(id).replace(/"/g,'')+'"').join(',');
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?select=*&stato=in.(programmata,in_corso)&cantiere_id=in.(${encodeURIComponent(lista)})`,{headers:R2_HDR,cache:'no-cache'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return (await r.json()).filter(a=>!a.data_rientro_effettiva);
+}
+// Controlla i cantieri chiusi con attrezzature aperte; aggiorna il banner in Dashboard
+async function controllaAttrezzatureCantieriChiusi(chiediSubito){
+  try{
+    const chiusi=(DB.cantieri||[]).filter(_caChiuso);
+    const ids=chiusi.map(c=>c.id).filter(Boolean);
+    const aperte=await _caAperteDi(ids);
+    _CA_PENDENTI=chiusi.map(c=>({cantiere:c, allocs:aperte.filter(a=>a.cantiere_id===c.id)})).filter(x=>x.allocs.length)
+      .sort((a,b)=>(b.cantiere.periodoFine||'').localeCompare(a.cantiere.periodoFine||''));
+    _caRenderBanner();
+    if(chiediSubito && !_CA_CHIESTO_SESS && _CA_PENDENTI.length){
+      _CA_CHIESTO_SESS=true;
+      _caApriElencoPendenti();
+    }
+  }catch(e){ console.warn('controllo attrezzature cantieri chiusi', e); }
+}
+function _caRenderBanner(){
+  const el=document.getElementById('ds-attr-alert'); if(!el) return;
+  if(!_CA_PENDENTI.length){ el.innerHTML=''; return; }
+  const n=_CA_PENDENTI.reduce((s,p)=>s+p.allocs.length,0);
+  el.innerHTML=`<div style="background:rgba(232,184,75,.08);border:1px solid rgba(232,184,75,.35);border-radius:var(--r);padding:12px 14px;margin-bottom:16px">
+    <div style="font-weight:700;color:var(--gold);margin-bottom:6px">⚠️ Cantieri chiusi con attrezzature ancora fuori · ${_CA_PENDENTI.length} cantier${_CA_PENDENTI.length>1?'i':'e'}, ${n} voc${n>1?'i':'e'}</div>
+    ${_CA_PENDENTI.map((p,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--brd)">
+      <div style="min-width:0"><div style="font-weight:600;font-size:13px">🏗️ ${esc2(p.cantiere.nome)}</div>
+      <div style="font-size:11px;color:var(--text2)">chiuso${p.cantiere.periodoFine?' · fine '+fdate(p.cantiere.periodoFine):''} · ${p.allocs.length} attrezzatur${p.allocs.length>1?'e':'a'} da sistemare</div></div>
+      <button onclick="chiusuraAttrezzature('${String(p.cantiere.id).replace(/'/g,'')}')" style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:6px;padding:6px 12px;color:var(--teal);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Gestisci ›</button>
+    </div>`).join('')}</div>`;
+}
+function _caChiudiModal(){ document.getElementById('ca-modal')?.remove(); }
+function _caModal(titolo, sotto, corpo, piede){
+  _caChiudiModal();
+  document.body.insertAdjacentHTML('beforeend',`<div id="ca-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9000;display:flex;align-items:center;justify-content:center;padding:14px" onclick="if(event.target.id==='ca-modal')_caChiudiModal()">
+    <div style="background:var(--navy2,#0f1e33);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;gap:10px"><div><div style="font-weight:800;font-size:15px">${titolo}</div>${sotto?`<div style="font-size:11.5px;color:var(--text2);margin-top:3px">${sotto}</div>`:''}</div>
+        <button onclick="_caChiudiModal()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer">✕</button></div>
+      <div style="padding:14px 18px;overflow:auto">${corpo}</div>
+      <div style="padding:12px 18px;border-top:1px solid var(--brd);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${piede}</div>
+    </div></div>`);
+}
+function _caApriElencoPendenti(){
+  if(!_CA_PENDENTI.length) return;
+  _caModal('📦 Attrezzature ancora fuori', 'Questi cantieri risultano chiusi ma hanno attrezzature non rientrate. Dimmi dove sono finite.',
+    _CA_PENDENTI.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div style="min-width:0"><b>🏗️ ${esc2(p.cantiere.nome)}</b><div style="font-size:11px;color:var(--text2)">${p.allocs.length} attrezzatur${p.allocs.length>1?'e':'a'}${p.cantiere.periodoFine?' · fine '+fdate(p.cantiere.periodoFine):''}</div></div>
+      <button class="bp" style="padding:6px 12px;font-size:12px" onclick="chiusuraAttrezzature('${String(p.cantiere.id).replace(/'/g,'')}')">Gestisci ›</button></div>`).join(''),
+    `<button class="bs" onclick="_caChiudiModal()">Decido dopo</button>`);
+}
+let _CA_CTX=null;
+// Dialogo per un cantiere: una riga per attrezzatura aperta
+async function chiusuraAttrezzature(cantId){
+  const c=(DB.cantieri||[]).find(x=>x.id===cantId); if(!c) return;
+  let allocs;
+  try{ allocs=await _caAperteDi([cantId]); }catch(e){ toast('⚠ Attrezzature non caricate (offline?)'); return; }
+  if(!allocs.length){ toast('✓ Nessuna attrezzatura aperta su «'+c.nome+'»'); await controllaAttrezzatureCantieriChiusi(false); _caChiudiModal(); return; }
+  const ris=await _caRisorseTutte();
+  const dest=(DB.cantieri||[]).filter(x=>x.id!==cantId && !_caChiuso(x)).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const optDest='<option value="">— scegli cantiere —</option>'+dest.map(x=>`<option value="${esc2(x.id)}">${esc2(x.nome)}${x.periodoInizio?' ('+fdate(x.periodoInizio)+')':''}</option>`).join('');
+  _CA_CTX={cantId, allocs};
+  const sel='background:var(--navy);border:1px solid var(--brd);border-radius:7px;color:var(--text);padding:6px 8px;font-size:12.5px';
+  const righe=allocs.map((a,i)=>{
+    const r=ris.find(x=>x.id===a.risorsa_id);
+    const uscita=_caUscita(a);
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div style="font-size:13px"><b>${esc2(r?r.nome:'#'+a.risorsa_id)}</b> ×${parseFloat(a.qty)} <span style="font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;${uscita?'background:rgba(14,124,102,.14);color:var(--teal)':'background:rgba(232,184,75,.14);color:var(--gold)'}">${uscita?'🚚 uscita':'📦 mai uscita (da preparare)'}</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <select id="ca-az-${i}" onchange="document.getElementById('ca-dest-${i}').style.display=this.value==='sposta'?'':'none'" style="${sel}">
+          ${uscita?`<option value="rientro">↩ Rientrata in deposito</option>`:`<option value="annulla">✕ Annulla: non è mai uscita</option>`}
+          <option value="sposta">↪ Spostata su altro cantiere</option>
+          <option value="dopo">⏳ Ancora fuori, decido dopo</option>
+        </select>
+        <select id="ca-dest-${i}" style="${sel};display:none;max-width:260px">${optDest}</select>
+      </div></div>`;
+  }).join('');
+  _caModal('🏗️ «'+esc2(c.nome)+'» chiuso — dove sono le attrezzature?', 'Per ogni attrezzatura ancora aperta scegli cosa è successo.',
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><label style="font-size:11px;color:var(--text2);text-transform:uppercase;font-weight:700">Data</label>
+      <input type="date" id="ca-data" value="${today()}" style="${sel}"></div>${righe}
+     <div style="font-size:11px;color:var(--text2);margin-top:8px">Rientro e spostamento aggiornano subito Planning e app Risorse. «Decido dopo» lascia il cantiere tra quelli segnalati in Dashboard.</div>`,
+    `<button class="bs" onclick="_caChiudiModal()">Decido dopo</button><button class="bp" onclick="_caConferma()">✓ Conferma</button>`);
+}
+async function _caConferma(){
+  const ctx=_CA_CTX; if(!ctx) return;
+  const c=(DB.cantieri||[]).find(x=>x.id===ctx.cantId);
+  const data=document.getElementById('ca-data')?.value||today();
+  const ops=[];
+  for(let i=0;i<ctx.allocs.length;i++){
+    const a=ctx.allocs[i];
+    const az=document.getElementById('ca-az-'+i)?.value;
+    if(az==='sposta'){
+      const did=document.getElementById('ca-dest-'+i)?.value;
+      if(!did){ toast('⚠ Scegli il cantiere di destinazione'); return; }
+      ops.push({a,az,dest:(DB.cantieri||[]).find(x=>x.id===did)});
+    } else ops.push({a,az});
   }
+  const now=new Date().toISOString();
+  let nR=0,nS=0,nA=0,nD=0;
+  try{
+    for(const o of ops){
+      const a=o.a;
+      if(o.az==='rientro'){
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${a.id}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify({data_rientro:data, data_rientro_effettiva:data, stato:'rientrata', aggiornato_il:now})});
+        if(!r.ok) throw new Error('rientro '+r.status); nR++;
+      } else if(o.az==='annulla'){
+        const r=await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${a.id}&stato=eq.programmata`,{method:'DELETE',headers:R2_HDR});
+        if(!r.ok) throw new Error('annullo '+r.status); nA++;
+      } else if(o.az==='sposta'){
+        const d=o.dest;
+        if(!_caUscita(a)){
+          // mai uscita: l'ordine passa all'altro cantiere
+          const usc=(d.periodoInizio&&d.periodoInizio>today())?d.periodoInizio:today();
+          const r=await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${a.id}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify({cantiere_id:d.id, cantiere_nome:d.nome, a_tipo:'cantiere', a_id:d.id, a_nome:d.nome,
+            data_uscita:usc, data_rientro:(d.periodoFine&&d.periodoFine>=usc)?d.periodoFine:null, note:((a.note||'')+' · spostata da '+(c?c.nome:'')).replace(/^ · /,''), aggiornato_il:now})});
+          if(!r.ok) throw new Error('spostamento '+r.status);
+        } else {
+          // uscita: chiude qui (giorno prima, così non conta due volte) e apre sul nuovo cantiere
+          const prima=_caGiornoPrima(data);
+          const r1=await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${a.id}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify({data_rientro:prima, data_rientro_effettiva:prima, stato:'trasferita', aggiornato_il:now})});
+          if(!r1.ok) throw new Error('trasferimento '+r1.status);
+          const r2=await fetch(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:{...R2_HDR,Prefer:'return=minimal'},body:JSON.stringify([{
+            risorsa_id:a.risorsa_id, qty:a.qty, deposito_id:a.deposito_id||null, cantiere_id:d.id, cantiere_nome:d.nome,
+            data_uscita:data, data_rientro:(d.periodoFine&&d.periodoFine>=data)?d.periodoFine:null, stato:'in_corso',
+            da_tipo:'cantiere', da_id:a.cantiere_id, da_nome:(c?c.nome:a.cantiere_nome)||null, a_tipo:'cantiere', a_id:d.id, a_nome:d.nome,
+            origine:'planning_chiusura', note:'Spostata dalla chiusura di '+((c?c.nome:a.cantiere_nome)||'cantiere'), aggiornato_il:now}])});
+          if(!r2.ok) throw new Error('nuovo cantiere '+r2.status);
+        }
+        nS++;
+      } else nD++;
+    }
+  }catch(e){ toast('⚠ Operazione interrotta: '+String(e.message||e).slice(0,60)); }
+  _caChiudiModal();
+  R2.loaded=false;
+  if(typeof mcRenderAlloc==='function' && _cantEditId) mcRenderAlloc(_cantEditId);
+  if(document.querySelector('.pg.active')?.id==='pg-risorse2') r2Render?.();
+  toast(`✓ ${nR} rientrate · ${nS} spostate${nA?' · '+nA+' annullate':''}${nD?' · '+nD+' in sospeso':''}`);
+  await controllaAttrezzatureCantieriChiusi(false);
+  if(_CA_PENDENTI.length && document.querySelector('.pg.active')?.id!=='pg-dash') { /* il banner resta in Dashboard */ }
 }
 
 // ── CLIENTE VELOCE (dal modal movimento) ─────────────────────────────────
