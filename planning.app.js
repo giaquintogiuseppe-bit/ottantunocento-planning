@@ -349,42 +349,97 @@ async function cloudVerificaConnessione(){
   }
 }
 
-// Salva: legge prima il remoto, fa merge SOLO su cantieri, poi fa PATCH
+// ── MERGE NON DISTRUTTIVO tra remoto (altre app) e locale (planning) ──
+// Unisce gli interventi di uno stesso cantiere per id: il planning vince sugli id
+// che ha toccato, ma NON perde gli interventi aggiunti altrove (es. mobile).
+function _mergeInterventiPlan(remIv, locIv){
+  remIv = Array.isArray(remIv) ? remIv : [];
+  locIv = Array.isArray(locIv) ? locIv : [];
+  const out = []; const seen = new Set();
+  locIv.forEach(iv=>{ if(iv){ if(iv.id!=null) seen.add(String(iv.id)); out.push(iv); } });
+  remIv.forEach(iv=>{ if(iv && iv.id!=null && !seen.has(String(iv.id))) out.push(iv); });
+  return out;
+}
+function _mergeCantieriPlan(remote, local){
+  remote = Array.isArray(remote) ? remote : [];
+  local  = Array.isArray(local)  ? local  : [];
+  const remById = {}; remote.forEach(c=>{ if(c && c.id!=null) remById[String(c.id)] = c; });
+  const locIds = new Set();
+  const out = local.map(c=>{
+    if(!c || c.id==null) return c;
+    locIds.add(String(c.id));
+    const rem = remById[String(c.id)];
+    if(!rem) return c;
+    // stesso cantiere su entrambi: tieni la versione del planning ma unisci gli interventi
+    return Object.assign({}, c, { interventi: _mergeInterventiPlan(rem.interventi, c.interventi) });
+  });
+  // cantieri presenti SOLO nel remoto (creati da un'altra app e non ancora nel planning): mantienili
+  remote.forEach(c=>{ if(c && c.id!=null && !locIds.has(String(c.id))) out.push(c); });
+  return out;
+}
+// Clienti: la fonte autorevole è il Gestionale (gruppi/anagrafica). Tengo il remoto e
+// aggiungo solo i clienti presenti unicamente in locale (creati dal planning).
+function _mergeClientiPlan(remote, local){
+  remote = Array.isArray(remote) ? remote : [];
+  local  = Array.isArray(local)  ? local  : [];
+  const remIds = new Set(remote.map(c=> (c && c.id!=null) ? String(c.id) : null).filter(Boolean));
+  const extra = local.filter(c=> c && c.id!=null && !remIds.has(String(c.id)));
+  return remote.concat(extra);
+}
+
+// Salva con LOCK OTTIMISTICO (come Gestionale/Mobile): rilegge il remoto + versione,
+// fa un merge non distruttivo e scrive SOLO se la versione non è cambiata nel frattempo.
+// Così non sovrascrive mai le pianificazioni/dati salvati da un'altra app.
 async function cloudSalvaOra(silenzioso=false){
   const log = document.getElementById('cloud-log');
   if(!silenzioso && log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Sincronizzazione...</div>'; }
+  const H = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
   try{
-    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
-      cache: 'no-cache'
-    });
-    const rows = await getRes.json();
-    const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
+    let salvato = false;
+    for(let tentativo=1; tentativo<=5 && !salvato; tentativo++){
+      // 1) stato remoto fresco + versione
+      const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,versione`, { headers: H, cache: 'no-cache' });
+      if(!getRes.ok) throw new Error('HTTP '+getRes.status);
+      const rows = await getRes.json();
+      const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
+      const versione = (rows && rows[0] && rows[0].versione!=null) ? rows[0].versione : null;
 
-    // merge: tengo tutto il remoto (presenze, saldi, documenti, ecc.)
-    // e sovrascrivo solo il campo cantieri con la versione locale del planning
-    const merged = { ...remoto, cantieri: DB.cantieri, mezziDB: DB.mezziDB, personaleHR: DB.personaleHR, risorse: DB.risorse, magazzino: DB.magazzino, clienti: DB.clienti };
+      // 2) merge non distruttivo: parto dal remoto (presenze, saldi, documenti, ecc. restano),
+      //    sovrascrivo i campi del planning, ma cantieri per elemento e clienti preferendo il remoto
+      const merged = Object.assign({}, remoto, {
+        cantieri:    _mergeCantieriPlan(remoto.cantieri, DB.cantieri),
+        mezziDB:     DB.mezziDB,
+        personaleHR: DB.personaleHR,
+        risorse:     DB.risorse,
+        magazzino:   DB.magazzino,
+        clienti:     _mergeClientiPlan(remoto.clienti, DB.clienti)
+      });
 
-    const _tsInvio = new Date().toISOString();
-    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({ dati: merged, aggiornato_il: _tsInvio })
-    });
+      // 3) PATCH condizionata sulla versione: scrive solo se nessuno ha toccato nel frattempo
+      const _tsInvio = new Date().toISOString();
+      const filtro = (versione!=null) ? `&versione=eq.${versione}` : '';
+      const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico${filtro}`, {
+        method: 'PATCH',
+        headers: Object.assign({}, H, { 'Content-Type':'application/json', 'Prefer':'return=representation' }),
+        body: JSON.stringify({ dati: merged, aggiornato_il: _tsInvio })
+      });
+      if(!patchRes.ok) throw new Error('HTTP '+patchRes.status);
+      const updated = await patchRes.json().catch(()=>[]);
 
-    if(patchRes.ok){
-      _cloudUltimoAggiornatoIl = _tsInvio;   // allineo il riferimento per l'auto-sync al rientro
-      if(!silenzioso && log) log.innerHTML = '<div style="color:var(--green)">✓ Salvato sul cloud (cantieri sincronizzati col gestionale)</div>';
-      if(!silenzioso) toast('Sincronizzato ✓');
-      document.getElementById('cloud-status-dot').style.background = '#4be87a';
-    } else {
-      if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore: ${patchRes.status}</div>`;
+      if(Array.isArray(updated) && updated.length>0){
+        salvato = true;
+        _cloudUltimoAggiornatoIl = _tsInvio;   // riferimento per l'auto-sync al rientro
+        // riallinea i cantieri locali a quelli effettivamente salvati (vedo subito gli interventi uniti)
+        try{ if(updated[0] && updated[0].dati && Array.isArray(updated[0].dati.cantieri)) DB.cantieri = updated[0].dati.cantieri; }catch(_){}
+        if(!silenzioso && log) log.innerHTML = '<div style="color:var(--green)">✓ Salvato sul cloud (sincronizzato con gestionale e mobile)</div>';
+        if(!silenzioso) toast('Sincronizzato ✓');
+        const dot = document.getElementById('cloud-status-dot'); if(dot) dot.style.background = '#4be87a';
+      } else {
+        // versione cambiata nel frattempo (un'altra app ha scritto): rileggo e rifaccio il merge
+        if(!silenzioso && log) log.innerHTML = '<div style="color:var(--text2)">↻ Dati cambiati altrove, riallineo…</div>';
+      }
     }
+    if(!salvato && log) log.innerHTML = '<div style="color:var(--gold)">⚠ Conflitto di sincronizzazione: i dati erano in modifica altrove, riprova tra poco</div>';
   }catch(err){
     if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore di rete: ${err.message}</div>`;
   }
