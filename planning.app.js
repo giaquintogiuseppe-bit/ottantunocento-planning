@@ -353,29 +353,44 @@ async function cloudVerificaConnessione(){
 // ── MERGE NON DISTRUTTIVO tra remoto (altre app) e locale (planning) ──
 // Unisce gli interventi di uno stesso cantiere per id: il planning vince sugli id
 // che ha toccato, ma NON perde gli interventi aggiunti altrove (es. mobile).
-function _mergeInterventiPlan(remIv, locIv){
+// CANCELLAZIONI: senza traccia il merge farebbe "risorgere" ciò che hai eliminato
+// (l'intervento manca in locale ma c'è nel remoto → verrebbe riaggiunto). Ogni
+// eliminazione lascia quindi l'id in una lista condivisa nel blob
+// (_interventiEliminati / _cantieriEliminati) che il merge rispetta.
+function _tombAdd(tipo, id){
+  if(id==null) return;
+  const k = tipo==='cantiere' ? '_cantieriEliminati' : '_interventiEliminati';
+  DB[k] = Array.isArray(DB[k]) ? DB[k] : [];
+  const sId = String(id);
+  if(!DB[k].includes(sId)) DB[k].push(sId);
+  if(DB[k].length>3000) DB[k] = DB[k].slice(-3000);
+}
+function _tombSet(remoto, k){ return new Set([...((remoto&&remoto[k])||[]), ...(DB[k]||[])].map(String)); }
+function _mergeInterventiPlan(remIv, locIv, tombIv){
   remIv = Array.isArray(remIv) ? remIv : [];
   locIv = Array.isArray(locIv) ? locIv : [];
+  const morto = iv => tombIv && iv && iv.id!=null && tombIv.has(String(iv.id));
   const out = []; const seen = new Set();
-  locIv.forEach(iv=>{ if(iv){ if(iv.id!=null) seen.add(String(iv.id)); out.push(iv); } });
-  remIv.forEach(iv=>{ if(iv && iv.id!=null && !seen.has(String(iv.id))) out.push(iv); });
+  locIv.forEach(iv=>{ if(iv && !morto(iv)){ if(iv.id!=null) seen.add(String(iv.id)); out.push(iv); } });
+  remIv.forEach(iv=>{ if(iv && iv.id!=null && !seen.has(String(iv.id)) && !morto(iv)) out.push(iv); });
   return out;
 }
-function _mergeCantieriPlan(remote, local){
+function _mergeCantieriPlan(remote, local, tombC, tombIv){
   remote = Array.isArray(remote) ? remote : [];
   local  = Array.isArray(local)  ? local  : [];
+  const mortoC = c => tombC && c && c.id!=null && tombC.has(String(c.id));
   const remById = {}; remote.forEach(c=>{ if(c && c.id!=null) remById[String(c.id)] = c; });
   const locIds = new Set();
-  const out = local.map(c=>{
+  const out = local.filter(c=>!mortoC(c)).map(c=>{
     if(!c || c.id==null) return c;
     locIds.add(String(c.id));
     const rem = remById[String(c.id)];
-    if(!rem) return c;
+    if(!rem) return tombIv ? Object.assign({}, c, { interventi: _mergeInterventiPlan([], c.interventi, tombIv) }) : c;
     // stesso cantiere su entrambi: tieni la versione del planning ma unisci gli interventi
-    return Object.assign({}, c, { interventi: _mergeInterventiPlan(rem.interventi, c.interventi) });
+    return Object.assign({}, c, { interventi: _mergeInterventiPlan(rem.interventi, c.interventi, tombIv) });
   });
   // cantieri presenti SOLO nel remoto (creati da un'altra app e non ancora nel planning): mantienili
-  remote.forEach(c=>{ if(c && c.id!=null && !locIds.has(String(c.id))) out.push(c); });
+  remote.forEach(c=>{ if(c && c.id!=null && !locIds.has(String(c.id)) && !mortoC(c)) out.push(c); });
   return out;
 }
 // Clienti: la fonte autorevole è il Gestionale (gruppi/anagrafica). Tengo il remoto e
@@ -407,8 +422,12 @@ async function cloudSalvaOra(silenzioso=false){
 
       // 2) merge non distruttivo: parto dal remoto (presenze, saldi, documenti, ecc. restano),
       //    sovrascrivo i campi del planning, ma cantieri per elemento e clienti preferendo il remoto
+      const _tIv = _tombSet(remoto, '_interventiEliminati');
+      const _tC  = _tombSet(remoto, '_cantieriEliminati');
       const merged = Object.assign({}, remoto, {
-        cantieri:    _mergeCantieriPlan(remoto.cantieri, DB.cantieri),
+        cantieri:    _mergeCantieriPlan(remoto.cantieri, DB.cantieri, _tC, _tIv),
+        _interventiEliminati: [..._tIv].slice(-3000),
+        _cantieriEliminati:   [..._tC].slice(-3000),
         mezziDB:     DB.mezziDB,
         personaleHR: DB.personaleHR,
         risorse:     DB.risorse,
@@ -462,7 +481,12 @@ async function cloudCaricaOra(silenzioso=false){
     }
     const remoto = rows[0].dati;
     _cloudUltimoAggiornatoIl = rows[0].aggiornato_il || _cloudUltimoAggiornatoIl;   // riferimento per l'auto-sync al rientro
-    DB.cantieri = remoto.cantieri || [];
+    // eliminazioni condivise: unisci quelle remote alle locali e non mostrare ciò che è stato eliminato
+    { const _tIv=_tombSet(remoto,'_interventiEliminati'), _tC=_tombSet(remoto,'_cantieriEliminati');
+      DB._interventiEliminati=[..._tIv].slice(-3000); DB._cantieriEliminati=[..._tC].slice(-3000);
+      DB.cantieri = (remoto.cantieri || []).filter(c=>!(c && c.id!=null && _tC.has(String(c.id))))
+        .map(c=> (c && Array.isArray(c.interventi) && c.interventi.some(iv=>iv && iv.id!=null && _tIv.has(String(iv.id))))
+          ? Object.assign({}, c, {interventi: c.interventi.filter(iv=>!(iv && iv.id!=null && _tIv.has(String(iv.id))))}) : c); }
     DB.mezziDB = remoto.mezziDB || [];
     const vecchioSembraPlanning = Array.isArray(remoto.personale) && remoto.personale.length>0 && remoto.personale[0].patenti !== undefined;
     DB.personaleHR = remoto.personaleHR || (vecchioSembraPlanning ? remoto.personale : []);
@@ -5999,6 +6023,11 @@ function salvaCantiere(){
   // Stato cambiato a mano dall'utente → nessuna chiusura automatica lo sovrascrive più
   // (se lo rimetti "concluso" o "perso", la gestione automatica riprende).
   const _prec = _cantEditId ? DB.cantieri.find(c=>c.id===_cantEditId) : null;
+  // interventi tolti nel form → traccia di eliminazione (altrimenti il merge col cloud li riporta)
+  if(_prec && Array.isArray(_prec.interventi)){
+    const _restano = new Set((_tmpInterv||[]).map(iv=>iv && iv.id!=null ? String(iv.id) : null).filter(Boolean));
+    _prec.interventi.forEach(iv=>{ if(iv && iv.id!=null && !_restano.has(String(iv.id))) _tombAdd('intervento', iv.id); });
+  }
   const statoManualeNuovo = (_prec && statoFinale!==(_prec.stato||''))
     ? (statoFinale!=='concluso' && statoFinale!=='perso')
     : !!(_prec && _prec._statoManuale && statoFinale!=='concluso' && statoFinale!=='perso');
@@ -6118,6 +6147,7 @@ function eliminaCantiere(){
   if(!c) return;
   if(!confirm(`Eliminare il cantiere "${c.nome}"? L'operazione non è reversibile.`)) return;
   DB.cantieri = (DB.cantieri||[]).filter(x=>x.id!==_cantEditId);
+  _tombAdd('cantiere', _cantEditId);
   save();
   closeModal('modal-cantiere');
   renderCantieri();
@@ -7586,8 +7616,10 @@ async function dcElimina(id){
           const i = c.interventi.findIndex(y=>String(y.id)===String(v.intervento_id));
           if(i>=0) c.interventi.splice(i,1);
         }
+        _tombAdd('intervento', v.intervento_id);
       } else {
         DB.cantieri = DB.cantieri.filter(x=>String(x.id)!==String(v.cantiere_id));
+        _tombAdd('cantiere', v.cantiere_id);
       }
       save();
       await cloudSalvaOra(true);
