@@ -514,9 +514,13 @@ async function cloudCaricaOra(silenzioso=false){
     (DB.cantieri||[]).forEach(c=>{
       if(c.tipo==='lungo_periodo') return;
       if(c._statoManuale) return;
-      const fine = c.periodoFine||c.periodoInizio||'';
+      // la fine reale è la più tarda tra periodoFine e l'ultimo lavoro pianificato
+      let fine = c.periodoFine||c.periodoInizio||'';
+      (c.interventi||[]).forEach(iv=>{ if(iv&&iv.data&&iv.data>fine) fine=iv.data; });
       if(!fine) return;
       const s=(c.stato||'').toLowerCase();
+      // chiuso in automatico ma con lavori pianificati da oggi in poi (es. aggiunti dal Diario) → riapri
+      if(s.includes('conclus') && c._autoChiuso && fine >= oggi){ c.stato='in corso'; c._autoChiuso=false; modificati++; return; }
       if(s.includes('conclus')||s.includes('perso')||s.includes('rifiut')) return;
       if(fine < oggi){ c.stato='concluso'; c._autoChiuso=true; modificati++; }
     });
