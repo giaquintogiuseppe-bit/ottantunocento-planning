@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otto8100-planning-v10';
+const CACHE_NAME = 'otto8100-planning-v11';
 const ASSETS = [
   './',
   './index.html',
