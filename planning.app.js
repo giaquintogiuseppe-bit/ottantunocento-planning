@@ -220,7 +220,7 @@ function nav(page){
   document.querySelectorAll('.mni-item').forEach(n=>{ if(n.getAttribute('onclick')===`nav('${page}')`) n.classList.add('active'); });
   if(page==='oggi') renderOggi();
   if(page==='dash') renderDash();
-  if(page==='cantieri') renderCantieri();
+  if(page==='cantieri'){ renderCantieri(); if(!REFP.length) refpLoad().then(()=>{ if(document.querySelector('.pg.active')?.id==='pg-cantieri') renderCantieri(); }); }
   if(page==='calendario'){ initCalendario(); }
   if(page==='inbox'){ caricaInbox(); }
   if(page==='personale') renderPersonale();
@@ -335,6 +335,20 @@ function renderDash(){
 const SUPABASE_URL = 'https://xqbhujcnjvwbwzpwjujf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxYmh1amNuanZ3Ynd6cHdqdWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MzM4ODUsImV4cCI6MjA5NzMwOTg4NX0.VstO3aII143jpPXjgKg0t3du-yc5rS9xs2hYko_2DRs';
 const SUPABASE_TABLE = 'gestionale_dati';
+
+// ── REFERENTI (testa del rapporto: Patrone, Carlucci, Loffredo…) ──
+// La tabella 'referenti' è condivisa col Gestionale; i clienti puntano a un referente via
+// cliente.referenteId. Qui serve per filtrare i cantieri per referente.
+let REFP=[];
+const _REFPAPI=()=>({url:SUPABASE_URL+'/rest/v1/referenti',h:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
+async function refpLoad(){ try{ const A=_REFPAPI(); const r=await fetch(A.url+'?select=id,nome&order=nome.asc',{headers:A.h,cache:'no-cache'}); const d=await r.json(); REFP=Array.isArray(d)?d:REFP; }catch(e){} }
+function _refpById(id){ return REFP.find(r=>r.id===id)||null; }
+// Referente di un cantiere: cantiere.clienteId → cliente.referenteId → referente.
+function _cantReferente(c){
+  const cli = c && c.clienteId ? (DB.clienti||[]).find(x=>x.id===c.clienteId) : null;
+  if(cli && cli.referenteId) return _refpById(cli.referenteId);
+  return null;
+}
 
 async function cloudVerificaConnessione(){
   const dot = document.getElementById('cloud-status-dot');
@@ -5388,8 +5402,14 @@ function renderCantieri(){
   const list = document.getElementById('cant-list');
   if(!list) return;
 
+  // popola il filtro referente (preservando la scelta) dalla tabella referenti
+  const refSel=document.getElementById('cant-ref');
+  const filtroRef = refSel?.value||'';
+  if(refSel){ refSel.innerHTML='<option value="">Tutti i referenti</option>'+REFP.map(r=>`<option value="${r.id}">${(r.nome||'').replace(/</g,'&lt;')}</option>`).join(''); refSel.value=filtroRef; }
+
   let cantieri = [...(DB.cantieri||[])];
   if(search) cantieri = cantieri.filter(c=>(c.nome+c.committente+c.luogo).toLowerCase().includes(search));
+  if(filtroRef) cantieri = cantieri.filter(c=>{ const r=_cantReferente(c); return r && r.id===filtroRef; });
 
   // nascondi i conclusi di default (archivio), a meno che non si stia filtrando esplicitamente per "concluso" o si sia attivato il toggle
   if(filtroStato){
@@ -5421,7 +5441,7 @@ function renderCantieri(){
           <div class="card-title">${c.nome}${c.archiviato?` <span style="font-size:11px;color:var(--text2);font-weight:400">🗄 Archiviato</span>`:''}
           </div>
           <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:2px">
-            ${c.committente||'—'} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}
+            ${c.committente||'—'}${(()=>{const r=_cantReferente(c);return r?' · 👤 '+(r.nome||'').replace(/</g,'&lt;'):'';})()} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}
           </div>
         </div>
         <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">

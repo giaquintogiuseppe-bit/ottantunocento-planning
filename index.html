@@ -528,6 +528,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <option value="da confermare">Da confermare</option>
         <option value="perso">❌ Perso</option>
       </select>
+      <select class="ts" id="cant-ref" onchange="renderCantieri()" style="width:170px" title="Filtra per referente"><option value="">Tutti i referenti</option></select>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
         <input type="checkbox" id="cant-mostra-conclusi" onchange="renderCantieri()" style="accent-color:var(--teal)">
         🗄 Mostra archivio (conclusi e persi)
