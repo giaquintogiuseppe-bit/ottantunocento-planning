@@ -272,23 +272,57 @@ tbody td{padding:10px 14px;vertical-align:middle}
   function salva(j){ setSess({ access_token:j.access_token, refresh_token:j.refresh_token,
     expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) }); }
 
-  // ── fetch patchato: inietta il token utente sulle chiamate Supabase ──────
-  window.fetch = function(input, init){
-    try{
-      var url = (typeof input === 'string') ? input : (input && input.url) || '';
-      if(url.indexOf(SB_URL) === 0 && url.indexOf('/auth/v1/') < 0){
-        var s = getSess();
-        if(s && s.access_token){
-          var h = new Headers((init && init.headers) || (typeof input!=='string' && input.headers) || {});
-          h.set('apikey', SB_ANON);
-          h.set('Authorization', 'Bearer ' + s.access_token);
-          init = Object.assign({}, init, { headers: h });
-          if(typeof input !== 'string') input = input.url;   // usa l'URL così vincono i nostri header
-        }
+  // ── rinnovo automatico del token (scade ogni ~60 min) ────────────────────
+  var _rinnovoInCorso = null;
+  function rinnova(forza){
+    var s = getSess();
+    if(!s || !s.refresh_token) return Promise.resolve(false);
+    if(!forza && s.expires_at && (Date.now()/1000 < s.expires_at - 300)) return Promise.resolve(true);
+    if(_rinnovoInCorso) return _rinnovoInCorso;
+    _rinnovoInCorso = _fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'apikey':SB_ANON },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    }).then(function(r){ return r.json().then(function(j){
+      if(r.ok && j.access_token){
+        setSess({ access_token:j.access_token, refresh_token:j.refresh_token,
+              expires_at: j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in||3600)) });
+        return true;
       }
-    }catch(e){}
-    return _fetch(input, init);
+      return false;
+    }); }).catch(function(){ return false; })
+      .then(function(ok){ _rinnovoInCorso = null; return ok; });
+    return _rinnovoInCorso;
+  }
+  function conToken(input, init){
+    var s = getSess();
+    if(!s || !s.access_token) return [input, init];
+    var h = new Headers((init && init.headers) || (typeof input!=='string' && input.headers) || {});
+    h.set('apikey', SB_ANON);
+    h.set('Authorization', 'Bearer ' + s.access_token);
+    return [ (typeof input !== 'string') ? input.url : input, Object.assign({}, init, { headers: h }) ];   // usa l'URL così vincono i nostri header
+  }
+
+  // ── fetch patchato: inietta il token utente sulle chiamate Supabase ──────
+  // Rinnova il token prima che scada e, se il server risponde 401, lo rinnova e riprova una volta.
+  window.fetch = function(input, init){
+    var url = '';
+    try{ url = (typeof input === 'string') ? input : (input && input.url) || ''; }catch(e){}
+    if(url.indexOf(SB_URL) !== 0 || url.indexOf('/auth/v1/') >= 0 || !getSess()) return _fetch(input, init);
+    return rinnova(false).then(function(){
+      var a = conToken(input, init);
+      return _fetch(a[0], a[1]).then(function(r){
+        if(r.status !== 401 || !(getSess()||{}).refresh_token) return r;
+        return rinnova(true).then(function(ok){
+          if(!ok) return r;
+          var b = conToken(input, init);
+          return _fetch(b[0], b[1]);
+        });
+      });
+    });
   };
+  // controllo anche al rientro nell'app e ogni 5 minuti
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) rinnova(false); });
+  setInterval(function(){ rinnova(false); }, 5*60*1000);
 
   // ── chiamate auth diritte (niente librerie) ──────────────────────────────
   function login(email, password){
@@ -410,6 +444,15 @@ tbody td{padding:10px 14px;vertical-align:middle}
     if(document.body) ins(); else document.addEventListener('DOMContentLoaded', ins);
   }
 
+  // logout globale utilizzabile dalle app: window.logout81()
+  // (definito prima dell'avvio: col return anticipato non veniva mai creato)
+  window.logout81 = function(){
+    try{ window.localStorage.removeItem(LSK); }catch(e){}
+    try{ window.sessionStorage.removeItem(LSK); }catch(e){}
+    try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}  // toglie il token del reset dall'URL
+    location.reload();
+  };
+
   // ── avvio: sessione valida? refresh? altrimenti login ────────────────────
   function mostra(){ if(document.body) overlay(); else document.addEventListener('DOMContentLoaded', overlay); }
   var s=getSess();
@@ -421,13 +464,6 @@ tbody td{padding:10px 14px;vertical-align:middle}
     }).catch(function(){ mostra(); });
   } else { mostra(); }
 
-  // logout globale utilizzabile dalle app: window.logout81()
-  window.logout81 = function(){
-    try{ window.localStorage.removeItem(LSK); }catch(e){}
-    try{ window.sessionStorage.removeItem(LSK); }catch(e){}
-    try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}  // toglie il token del reset dall'URL
-    location.reload();
-  };
 })();
 </script>
 
