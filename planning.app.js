@@ -1919,6 +1919,18 @@ function qtaFuori(articoloId, allaData){
 // ═══════════════════════════════════════════════════════════════
 const R2_HDR = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' };
 let R2 = { depositi:[], risorse:[], giacenze:[], allocazioni:[], loaded:false };
+
+// ── ANTI-DOPPIONE / ANTI-DOPPIO-CLICK sulle scritture allocazioni ──
+// Causa dei doppioni visti (righe gemelle a mezzo secondo): un'azione registrata due volte.
+// _r2Busy serializza le operazioni (niente seconda scrittura mentre la prima è in corso);
+// _r2Dup rifiuta una firma identica ripetuta entro 15s (anche tra due invocazioni separate).
+let _r2Busy=false;
+const _r2Recent={};
+function _r2Dup(sig){
+  const now=Date.now(); const prev=_r2Recent[sig]; _r2Recent[sig]=now;
+  for(const k in _r2Recent){ if(now-_r2Recent[k]>60000) delete _r2Recent[k]; }
+  return prev && (now-prev)<15000;
+}
 let _r2Tab = 'disp';
 let _r2EditRisorsa = null;
 let _r2EditAlloc = null;
@@ -2125,8 +2137,11 @@ function r2RenderAlloc(){
     const inRitardo=attiva && a.data_rientro && a.data_rientro<oggi;
     return `<tr${inRitardo?' style="background:rgba(232,75,75,.06)"':''}>
       <td><b>${esc2(r?r.nome:'?')}</b>${a.da_tipo==='cantiere'?`<div style="font-size:10px;color:var(--text2)">⇄ da ${esc2(a.da_nome||'')}</div>`:''}
-        ${attiva&&a.cantiere_id?`<div style="margin-top:4px;white-space:nowrap"><button class="bs" title="Trasferisci a un altro cantiere" style="font-size:11px;padding:3px 8px" onclick="r2ApriMov('${a.id}','trasferimento')">⇄ trasferisci</button>
-        <button class="bs" title="Rientro al deposito" style="font-size:11px;padding:3px 8px" onclick="r2ApriMov('${a.id}','rientro')">↩ rientro</button></div>`:''}</td>
+        ${attiva?(a.cantiere_id
+          ? `<div style="margin-top:4px;white-space:nowrap"><button class="bs" title="Trasferisci a un altro cantiere" style="font-size:11px;padding:3px 8px" onclick="r2ApriMov('${a.id}','trasferimento')">⇄ trasferisci</button>
+        <button class="bs" title="Rientro al deposito" style="font-size:11px;padding:3px 8px" onclick="r2ApriMov('${a.id}','rientro')">↩ rientro</button></div>`
+          : `<div style="margin-top:4px;white-space:nowrap"><button class="bs" title="Chiudi il trasferimento (segna rientrata)" style="font-size:11px;padding:3px 8px" onclick="r2ApriMov('${a.id}','rientro')">↩ chiudi</button></div>`
+         ):''}</td>
       <td class="mn">${parseFloat(a.qty).toLocaleString('it-IT')}</td>
       <td>${esc2(a.cantiere_nome||'—')}</td>
       <td style="font-size:11px">${esc2(dp?dp.nome.replace('Deposito ',''):'—')}</td>
@@ -2163,8 +2178,11 @@ function r2RenderAlloc(){
       <div style="min-width:150px;flex:1.2;font-size:12px">📍 <b>${esc2(a.cantiere_nome||'—')}</b></div>
       <div style="min-width:130px;font-size:11px;color:var(--text2)">${fdate(a.data_uscita)} → ${a.data_rientro?fdate(a.data_rientro):'<span style="color:#e8b84b;font-weight:700">aperta</span>'}${inCorso?' · <span style="color:var(--green)">fuori ora</span>':''}</div>
       <div style="display:flex;gap:6px;margin-left:auto">
-        ${attiva&&a.cantiere_id?`<button class="bs" title="Trasferisci a un altro cantiere" style="font-size:11px;padding:5px 10px" onclick="r2ApriMov('${a.id}','trasferimento')">⇄</button>
-        <button class="bs" title="Rientro al deposito" style="font-size:11px;padding:5px 10px" onclick="r2ApriMov('${a.id}','rientro')">↩</button>`:''}
+        ${attiva?(a.cantiere_id
+          ? `<button class="bs" title="Trasferisci a un altro cantiere" style="font-size:11px;padding:5px 10px" onclick="r2ApriMov('${a.id}','trasferimento')">⇄</button>
+        <button class="bs" title="Rientro al deposito" style="font-size:11px;padding:5px 10px" onclick="r2ApriMov('${a.id}','rientro')">↩</button>`
+          : `<button class="bs" title="Chiudi il trasferimento (segna rientrata)" style="font-size:11px;padding:5px 10px" onclick="r2ApriMov('${a.id}','rientro')">↩ chiudi</button>`
+         ):''}
         <button class="bs" style="font-size:11px;padding:5px 10px" onclick="r2ApriAlloc('${a.id}')">✎</button>
       </div></div>`;
   };
@@ -2356,6 +2374,12 @@ async function r2SalvaAlloc(){
     da_tipo:'deposito', da_id:depId, da_nome:depNome,
     a_tipo: cid?'cantiere':'deposito', a_id: cid||depId, a_nome: cid?cNome:depNome,
     aggiornato_il:new Date().toISOString() };
+  if(_r2Busy){ return; }                 // già in corso: niente doppia scrittura
+  // anti-doppione sulle NUOVE allocazioni (non sulle modifiche)
+  if(!_r2EditAlloc && _r2Dup('alloc|'+rid+'|'+q+'|'+uscita+'|'+(depId||'')+'|'+(cid||'')+'|'+(payload.a_id||''))){
+    toast('⚠ Allocazione identica appena registrata — ignoro il doppione'); closeModal('modal-r2-alloc'); return;
+  }
+  _r2Busy=true;
   try{
     if(_r2EditAlloc){ await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${_r2EditAlloc}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(payload)}); }
     else { await fetch(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:R2_HDR,body:JSON.stringify(payload)}); }
@@ -2363,6 +2387,7 @@ async function r2SalvaAlloc(){
     if(typeof _r2AfterSave==='function'){ const cb=_r2AfterSave; _r2AfterSave=null; cb(); }
     toast('✓ Allocazione salvata');
   }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  finally{ _r2Busy=false; }
 }
 /* ── MOVIMENTI: trasferimento tra cantieri e rientro al deposito (usa ALLOC_LIB) ── */
 let _r2MovAlloc=null;
@@ -2370,11 +2395,12 @@ function r2ApriMov(allocId, tipo){
   const a=R2.allocazioni.find(x=>String(x.id)===String(allocId)); if(!a) return;
   _r2MovAlloc=a;
   const r=R2.risorse.find(x=>x.id===a.risorsa_id);
-  const titolo = tipo==='trasferimento' ? '⇄ Trasferisci a un altro cantiere' : '↩ Rientro al deposito';
+  const dove = a.cantiere_nome || a.a_nome || a.da_nome || '—';   // deposito→deposito: non c'è cantiere, uso la destinazione
+  const titolo = tipo==='trasferimento' ? '⇄ Trasferisci a un altro cantiere' : (a.cantiere_id ? '↩ Rientro al deposito' : '↩ Chiudi trasferimento');
   document.getElementById('r2-mov-title').textContent=titolo;
   const cantieri=(DB.cantieri||[]).filter(c=>c.id!==a.cantiere_id && c.stato!=='concluso' && c.stato!=='perso')
     .sort((x,y)=>(y.periodoInizio||'').localeCompare(x.periodoInizio||''));
-  let h=`<div style="font-size:13px;margin-bottom:10px"><b>${esc2(r?r.nome:'?')}</b> — ${parseFloat(a.qty)} ${esc2(r?r.unita||'pz':'')} attualmente su <b>${esc2(a.cantiere_nome||'—')}</b></div>`;
+  let h=`<div style="font-size:13px;margin-bottom:10px"><b>${esc2(r?r.nome:'?')}</b> — ${parseFloat(a.qty)} ${esc2(r?r.unita||'pz':'')} ${a.cantiere_id?'attualmente su':'in transito →'} <b>${esc2(dove)}</b></div>`;
   if(tipo==='trasferimento'){
     h+=`<div class="fr"><label>Cantiere di destinazione *</label>
       <select id="r2m-dest">${cantieri.map(c=>`<option value="${c.id}">${esc2(c.nome)}</option>`).join('')}</select></div>
@@ -2405,20 +2431,28 @@ async function r2EseguiTrasferimento(){
   if(!qty||qty<=0){ toast('Quantità non valida'); return; }
   const ops=movTrasferimento(R2.allocazioni, a.risorsa_id, a.cantiere_id, a.cantiere_nome, dest.id, dest.nome, qty, data, null);
   if(ops.errore){ toast('⚠ '+ops.errore); return; }
+  if(_r2Busy) return;
+  if(_r2Dup('trasf|'+a.id+'|'+dest.id+'|'+qty+'|'+data)){ toast('⚠ Trasferimento identico appena registrato — ignoro'); closeModal('modal-r2-mov'); return; }
+  _r2Busy=true;
   try{
     await _r2EseguiOps(ops);
     closeModal('modal-r2-mov'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab); r2AggiornaBadgeRientri();
     toast(`✓ ${qty} trasferite a ${dest.nome}`);
   }catch(e){ toast('⚠ Errore trasferimento'); }
+  finally{ _r2Busy=false; }
 }
 async function r2EseguiRientro(){
   const a=_r2MovAlloc; if(!a) return;
   const data=document.getElementById('r2m-data').value||r2today();
+  if(_r2Busy) return;
+  if(_r2Dup('rientro|'+a.id+'|'+data)){ toast('⚠ Rientro già registrato'); closeModal('modal-r2-mov'); return; }
+  _r2Busy=true;
   try{
     await _r2EseguiOps(movRientro(a.id, data));
     closeModal('modal-r2-mov'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab); r2AggiornaBadgeRientri();
     toast('✓ Rientro registrato');
   }catch(e){ toast('⚠ Errore rientro'); }
+  finally{ _r2Busy=false; }
 }
 
 async function r2EliminaAlloc(){
