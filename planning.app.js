@@ -79,11 +79,20 @@ async function _applicaProposteBot(){
       }
       idsOk.push(p.id);
     });
-    if(ok){ save(); if(typeof renderDash==='function') renderDash(); toast('🤖 '+ok+' giornate applicate dal bot — controllale nel calendario'); }
+    let salvatoOk=true;
+    if(ok){
+      save(); clearTimeout(cloudAutoSaveTimer); _modifichePendenti=false;
+      salvatoOk = await cloudSalvaOra(true);   // le proposte si marcano 'applicata' SOLO se il planning è davvero sul cloud
+      if(typeof renderDash==='function') renderDash();
+      toast(salvatoOk ? '🤖 '+ok+' giornate applicate dal bot — controllale nel calendario'
+                      : '⚠ Giornate del bot NON salvate sul cloud: le proposte restano in attesa');
+    }
     const marca=(ids,stato)=>ids.length&&fetch(`${SUPABASE_URL}/rest/v1/pianificazioni_bot?id=in.(${ids.join(',')})`,
       {method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
-       body:JSON.stringify({stato:stato,applicata_il:new Date().toISOString()})}).catch(()=>{});
-    marca(idsOk,'applicata'); marca(idsNo,'rifiutata');
+       body:JSON.stringify({stato:stato,applicata_il:new Date().toISOString()})})
+      .then(r=>{ if(!r.ok) console.warn('proposte bot: marcatura '+stato+' fallita HTTP '+r.status); }).catch(()=>{});
+    if(salvatoOk) marca(idsOk,'applicata');
+    marca(idsNo,'rifiutata');
   }catch(e){ console.warn('proposte bot:', e.message); }
 }
 
@@ -115,7 +124,7 @@ let _cloudUltimoAggiornatoIl = null;
 let _rientroInCorso = false;
 let _rientroUltimoCheck = 0;
 async function cloudControllaAlRientro(){
-  if(_rientroInCorso || _modifichePendenti) return;   // sync in corso o modifiche non salvate: non ricarico
+  if(_rientroInCorso || _modifichePendenti || _salvataggioFallito) return;   // sync in corso o modifiche non salvate: non ricarico
   const ora = Date.now();
   if(ora - _rientroUltimoCheck < 1500) return;         // anti-rimbalzo (focus + visibilitychange insieme)
   _rientroUltimoCheck = ora;
@@ -155,10 +164,10 @@ window.addEventListener('pageshow', (e)=>{ if(e.persisted) cloudControllaAlRient
 // La build sta in questo stesso file: la aggiorno io a ogni consegna, Giuseppe
 // non deve mantenere nessun file di versione.
 // ============================================================
-const _APP_BUILD = '2026-08-22-a';
+const _APP_BUILD = '2026-10-18-a';
 let _verInCorso = false, _verUltimoCheck = 0;
 async function _planningControllaVersione(){
-  if(_verInCorso || _modifichePendenti) return;          // sync in corso o modifiche non salvate
+  if(_verInCorso || _modifichePendenti || _salvataggioFallito) return;   // sync in corso o modifiche non salvate
   const ora = Date.now();
   if(ora - _verUltimoCheck < 60000) return;              // al massimo 1 controllo al minuto
   _verUltimoCheck = ora; _verInCorso = true;
@@ -184,7 +193,10 @@ window.addEventListener('focus', _planningControllaVersione);
 window.addEventListener('pageshow', ()=> _planningControllaVersione());
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Data LOCALE 'YYYY-MM-DD' di un Date. Per le date di calendario MAI toISOString():
+// è in UTC e in Italia tra mezzanotte e le 2 (o da un Date a mezzanotte) dà il giorno prima.
+function isoLocale(d){ d = d || new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function today(){ return isoLocale(new Date()); }
 function fmt(n){ return parseFloat(n||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
 function fdate(s){ if(!s) return '—'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; }
 const GIORNI_SETT = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
@@ -251,8 +263,9 @@ function renderDash(){
 
   const cantieri = DB.cantieri || [];
   const oggi = today();
-  const inCorso = cantieri.filter(c => c.periodoInizio <= oggi && (c.periodoFine||c.periodoInizio) >= oggi);
-  const futuri = cantieri.filter(c => c.periodoInizio > oggi);
+  // perso/archiviati non sono lavorazioni: fuori dai conteggi "in corso" e "in arrivo"
+  const inCorso = cantieri.filter(c => cantiereOperativo(c) && c.periodoInizio <= oggi && (c.periodoFine||c.periodoInizio) >= oggi);
+  const futuri = cantieri.filter(c => cantiereOperativo(c) && c.periodoInizio > oggi);
 
   normalizzaPersonaleHR(); // garantisce struttura corretta prima dei calcoli
 
@@ -286,12 +299,12 @@ function renderDash(){
     const ass = _assegnato(c);
     const gg = Math.round((new Date(c.periodoInizio) - new Date(oggi))/86400000);
     const quando = c.periodoInizio>oggi ? (gg<=0?'oggi':gg===1?'domani':'tra '+gg+' gg') : '';
-    return `<div class="tc" style="cursor:pointer;padding:12px 13px;margin-bottom:0" onclick="apriModificaCantiere('${c.id}')">
+    return `<div class="tc" style="cursor:pointer;padding:12px 13px;margin-bottom:0" onclick="apriModificaCantiere('${esc2(c.id)}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div class="card-title" style="font-size:15px;line-height:1.2">${c.nome||'—'}</div>
+        <div class="card-title" style="font-size:15px;line-height:1.2">${esc2(c.nome||'—')}</div>
         <span class="bx ${b.cls}" style="white-space:nowrap">${b.txt}</span>
       </div>
-      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 6px">${c.codice?'<span style="color:var(--accent,#6f7ce8)">'+c.codice+'</span> · ':''}${c.committente||'—'} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
+      <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin:4px 0 6px">${c.codice?'<span style="color:var(--accent,#6f7ce8)">'+esc2(c.codice)+'</span> · ':''}${esc2(c.committente||'—')} · ${fdate(c.periodoInizio)}${(c.periodoFine&&c.periodoFine!==c.periodoInizio)?' → '+fdate(c.periodoFine):''}</div>
       ${_tipiHtml}
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${quando?`<span class="bx bz">🗓 ${quando}</span>`:''}
@@ -318,8 +331,8 @@ function renderDash(){
   document.getElementById('ds-interventi').innerHTML = prossimi.length ? prossimi.map(iv=>`
     <div class="ri">
       <div>
-        <div class="rlt">${iv.descrizione}</div>
-        <div class="rls">${iv.cantiereNome} · squadra: ${squadraArray(iv).join(', ')||'—'}</div>
+        <div class="rlt">${esc2(iv.descrizione||'—')}</div>
+        <div class="rls">${esc2(iv.cantiereNome)} · squadra: ${esc2(squadraArray(iv).join(', ')||'—')}</div>
       </div>
       <span class="mn" style="color:var(--teal);font-size:12px">${fdateGiorno(iv.data)}</span>
     </div>
@@ -357,7 +370,7 @@ async function cloudVerificaConnessione(){
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=aggiornato_il`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
-    if(res.ok){ dot.style.background = '#4be87a'; txt.textContent = 'Connesso ✓'; return true; }
+    if(res.ok){ if(!_salvataggioFallito){ dot.style.background = '#4be87a'; txt.textContent = 'Connesso ✓'; } return true; }   // con un salvataggio fallito il pallino resta rosso
     dot.style.background = '#e84b4b'; txt.textContent = 'Errore connessione'; return false;
   }catch(err){
     dot.style.background = '#e84b4b'; txt.textContent = 'Offline'; return false;
@@ -420,6 +433,44 @@ function _mergeClientiPlan(remote, local){
 // Salva con LOCK OTTIMISTICO (come Gestionale/Mobile): rilegge il remoto + versione,
 // fa un merge non distruttivo e scrive SOLO se la versione non è cambiata nel frattempo.
 // Così non sovrascrive mai le pianificazioni/dati salvati da un'altra app.
+// Ritorna true se il salvataggio è andato a buon fine, false altrimenti: in caso di
+// errore NON fallisce mai in silenzio (barra rossa persistente con "Riprova" + pallino rosso).
+let _salvataggioFallito = false;
+function _mostraNonSalvato(motivo){
+  _salvataggioFallito = true;
+  let bar = document.getElementById('l81-nonsalvato');
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'l81-nonsalvato';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392f;color:#fff;padding:9px 14px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-family:\'IBM Plex Sans\',sans-serif;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    const t = document.createElement('span'); t.className = 'l81-ns-txt';
+    const b = document.createElement('button');
+    b.textContent = 'Riprova';
+    b.style.cssText = 'background:#fff;color:#c0392f;border:none;border-radius:6px;padding:5px 14px;font-weight:700;font-size:12px;cursor:pointer';
+    b.onclick = ()=>{ b.disabled = true; b.textContent = '⏳'; Promise.resolve(cloudSalvaOra()).finally(()=>{ b.disabled = false; b.textContent = 'Riprova'; }); };
+    bar.appendChild(t); bar.appendChild(b);
+    document.body.appendChild(bar);
+  }
+  bar.querySelector('.l81-ns-txt').textContent = '⚠ Modifiche NON salvate sul cloud: ' + (motivo || 'errore sconosciuto');
+  bar.style.display = 'flex';
+  const dot = document.getElementById('cloud-status-dot'); if(dot) dot.style.background = '#e84b4b';
+  const txt = document.getElementById('cloud-status-text'); if(txt) txt.textContent = 'Non salvato';
+}
+function _nascondiNonSalvato(){
+  _salvataggioFallito = false;
+  const bar = document.getElementById('l81-nonsalvato'); if(bar) bar.style.display = 'none';
+  const dot = document.getElementById('cloud-status-dot'); if(dot) dot.style.background = '#4be87a';
+  const txt = document.getElementById('cloud-status-text'); if(txt) txt.textContent = 'Connesso ✓';
+}
+// Messaggio leggibile da una risposta PostgREST non-2xx ({message, details, hint}).
+// soloMessaggio=true: solo il testo del DB (es. errori "parlanti" delle RPC), senza "HTTP nnn".
+async function _msgErroreHttp(res, soloMessaggio){
+  let m = '';
+  try{ const j = await res.clone().json(); m = (j && (j.message || j.error_description || j.error || j.hint)) || ''; }catch(_){}
+  if(!m){ try{ m = (await res.text()).slice(0,200); }catch(_){} }
+  if(soloMessaggio && m) return m;
+  return 'HTTP ' + res.status + (m ? ' — ' + m : '');
+}
 async function cloudSalvaOra(silenzioso=false){
   const log = document.getElementById('cloud-log');
   if(!silenzioso && log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Sincronizzazione...</div>'; }
@@ -429,7 +480,7 @@ async function cloudSalvaOra(silenzioso=false){
     for(let tentativo=1; tentativo<=5 && !salvato; tentativo++){
       // 1) stato remoto fresco + versione
       const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,versione`, { headers: H, cache: 'no-cache' });
-      if(!getRes.ok) throw new Error('HTTP '+getRes.status);
+      if(!getRes.ok) throw new Error(await _msgErroreHttp(getRes));
       const rows = await getRes.json();
       const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
       const versione = (rows && rows[0] && rows[0].versione!=null) ? rows[0].versione : null;
@@ -457,7 +508,7 @@ async function cloudSalvaOra(silenzioso=false){
         headers: Object.assign({}, H, { 'Content-Type':'application/json', 'Prefer':'return=representation' }),
         body: JSON.stringify({ dati: merged, aggiornato_il: _tsInvio })
       });
-      if(!patchRes.ok) throw new Error('HTTP '+patchRes.status);
+      if(!patchRes.ok) throw new Error(await _msgErroreHttp(patchRes));
       const updated = await patchRes.json().catch(()=>[]);
 
       if(Array.isArray(updated) && updated.length>0){
@@ -467,15 +518,23 @@ async function cloudSalvaOra(silenzioso=false){
         try{ if(updated[0] && updated[0].dati && Array.isArray(updated[0].dati.cantieri)) DB.cantieri = updated[0].dati.cantieri; }catch(_){}
         if(!silenzioso && log) log.innerHTML = '<div style="color:var(--green)">✓ Salvato sul cloud (sincronizzato con gestionale e mobile)</div>';
         if(!silenzioso) toast('Sincronizzato ✓');
-        const dot = document.getElementById('cloud-status-dot'); if(dot) dot.style.background = '#4be87a';
+        _nascondiNonSalvato();
       } else {
         // versione cambiata nel frattempo (un'altra app ha scritto): rileggo e rifaccio il merge
         if(!silenzioso && log) log.innerHTML = '<div style="color:var(--text2)">↻ Dati cambiati altrove, riallineo…</div>';
       }
     }
-    if(!salvato && log) log.innerHTML = '<div style="color:var(--gold)">⚠ Conflitto di sincronizzazione: i dati erano in modifica altrove, riprova tra poco</div>';
+    if(!salvato){
+      if(log) log.innerHTML = '<div style="color:var(--gold)">⚠ Conflitto di sincronizzazione: i dati erano in modifica altrove, riprova tra poco</div>';
+      _mostraNonSalvato('conflitto di sincronizzazione (dati in modifica altrove)');
+      return false;
+    }
+    return true;
   }catch(err){
-    if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore di rete: ${err.message}</div>`;
+    const motivo = (err && err.message) || String(err);
+    if(log) log.innerHTML = `<div style="color:var(--gold)">⚠ Errore di rete: ${esc2(motivo)}</div>`;
+    _mostraNonSalvato(motivo);
+    return false;
   }
 }
 
@@ -681,7 +740,7 @@ function renderSquadre(){
   const nomePersona = id => { const p = personaleGestionale.find(x=>x.id===id); return p ? p.nome : id; };
 
   const cantieri = (DB.cantieri||[])
-    .filter(c => !['Perso/Rifiutato','Preventivo'].includes(c.stato))
+    .filter(c => cantiereOperativo(c) && !/^(perso|preventivo)/i.test(String(c.stato||'')))   // stati attuali minuscoli (anche i vecchi 'Perso/Rifiutato','Preventivo')
     .sort((a,b)=>(a.periodoInizio||'').localeCompare(b.periodoInizio||''));
 
   if(!cantieri.length){
@@ -706,7 +765,7 @@ function renderSquadre(){
 
     return `
       <div class="fc" style="margin-bottom:14px">
-        <h3>${c.nome} <span style="font-size:11px;color:var(--text2);font-weight:400">${fdate(c.periodoInizio)} → ${fdate(c.periodoFine)} · ${c.stato||''}</span></h3>
+        <h3>${esc2(c.nome)} <span style="font-size:11px;color:var(--text2);font-weight:400">${fdate(c.periodoInizio)} → ${fdate(c.periodoFine)} · ${c.stato||''}</span></h3>
         <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:10px">
           <div style="flex:1;min-width:180px">
             <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Squadra pianificata</div>
@@ -800,7 +859,7 @@ function renderRiepilogoGiornaliero(){
 
   const giorni=[];
   let cur=new Date(da+'T12:00:00'), fine=new Date(al+'T12:00:00'), guard=0;
-  while(cur<=fine && guard<31){ giorni.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); guard++; }
+  while(cur<=fine && guard<31){ giorni.push(isoLocale(cur)); cur.setDate(cur.getDate()+1); guard++; }
 
   const mappa = _buildSqMappa(giorni);
 
@@ -1008,7 +1067,7 @@ function _getDatiGrigliaSquadre(){
   let cur = new Date(da+'T12:00:00');
   const fine = new Date(al+'T12:00:00');
   let guard = 0;
-  while(cur <= fine && guard < 31){ giorni.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); guard++; }
+  while(cur <= fine && guard < 31){ giorni.push(isoLocale(cur)); cur.setDate(cur.getDate()+1); guard++; }
 
   const mappa = _buildSqMappa(giorni);
 
@@ -1292,172 +1351,221 @@ function assegnaASquadraGiorno(cantiereId, intervId, nome){
 
 // ============================================================
 // INBOX — PROPOSTE DI ROBERTO
-// ── INBOX ROBERTO — SISTEMA APPROVAZIONE COMPLETO ────────────────────────
+// Legge le proposte dalla riga 'roberto_staging', le mostra con il diff visivo
+// e permette approvazione/rifiuto. Le modifiche approvate vengono applicate al
+// DB locale e salvate con cloudSalvaOra() (lock ottimistico sulla versione).
+// Lo stato della proposta si scrive su 'roberto_staging' rileggendo la riga
+// fresca e riapplicando SOLO la modifica di quella proposta (lock su versione).
+// Le PRESENZE_GIORNO non passano di qui: le applica il Gestionale.
+// ============================================================
+let _stagingData = null;
 
-// Controlla staging all'avvio e aggiorna il badge automaticamente
+function _crInPlanning(r){ return !!r && r.tipo!=='PRESENZE_GIORNO'; }
+function _crPending(r){ return _crInPlanning(r) && (!r.stato || r.stato==='pending'); }   // il batch di Roberto arriva senza stato = in attesa
+
+// Badge proposte (sidebar + header). Se l'Inbox non è aperta rilegge dal cloud
+// solo l'elenco proposte, così anche il polling ogni 120s accende la spia.
 async function aggiornaInboxBadge(){
-  try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.roberto_staging&select=dati`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},
-      cache:'no-cache'
-    });
-    const rows = res.ok ? await res.json() : [];
-    const staging = (rows&&rows[0]?.dati) ? rows[0].dati : {changeRequests:[]};
-    const n = (staging.changeRequests||[]).filter(r=>!r.stato||r.stato==='pending').length;
-    const badge = document.getElementById('sb-inbox-badge');
-    const hdrBadge = document.getElementById('hdr-inbox-badge');
-    if(badge){ badge.textContent=n; badge.style.display=n>0?'inline-block':'none'; }
-    if(hdrBadge){ hdrBadge.textContent=n; hdrBadge.style.display=n>0?'inline-flex':'none'; }
-    // Banner notifica in alto se ci sono proposte nuove
-    const banner = document.getElementById('inbox-banner');
-    if(banner) banner.style.display=n>0?'flex':'none';
-    if(n>0 && !_stagingData) _stagingData=staging;
-  } catch(e){ /* silenzioso */ }
+  let crs = null;
+  const inboxAperta = document.querySelector('.pg.active')?.id === 'pg-inbox';
+  if(_stagingData && inboxAperta){
+    crs = _stagingData.changeRequests || [];
+  } else {
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.roberto_staging&select=crs:dati->changeRequests`,{
+        headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}, cache:'no-cache'
+      });
+      if(res.ok){ const rows = await res.json(); crs = (rows && rows[0] && Array.isArray(rows[0].crs)) ? rows[0].crs : []; }
+    }catch(e){ /* offline: uso quello che ho */ }
+    if(crs===null) crs = (_stagingData && _stagingData.changeRequests) || [];
+  }
+  const n = crs.filter(_crPending).length;
+  const b = document.getElementById('sb-inbox-badge');
+  if(b){ b.textContent=n; b.style.display=n?'inline':'none'; }
+  const h = document.getElementById('hdr-inbox-badge');
+  if(h){ h.textContent=n; h.style.display=n?'inline-flex':'none'; }
 }
 
 async function caricaInbox(){
   const cont = document.getElementById('inbox-content');
-  if(cont) cont.innerHTML='<div style="color:var(--text2);text-align:center;padding:20px">⏳ Caricamento...</div>';
+  if(cont) cont.innerHTML = '<div class="ri"><div class="rls">⏳ Lettura proposte in corso...</div></div>';
   try{
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.roberto_staging&select=dati,aggiornato_il`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`},
-      cache:'no-cache'
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}, cache:'no-cache'
     });
-    const rows = res.ok ? await res.json() : [];
-    _stagingData = (rows&&rows[0]?.dati) ? rows[0].dati : {changeRequests:[], config:{}};
+    if(!res.ok) throw new Error(await _msgErroreHttp(res));
+    const rows = await res.json();
+    _stagingData = (rows&&rows[0]&&rows[0].dati) ? rows[0].dati : {changeRequests:[], config:{}};
     renderInbox();
     aggiornaInboxBadge();
-  } catch(err){
-    if(cont) cont.innerHTML=`<div style="color:var(--red);padding:16px">⚠ Errore: ${err.message}</div>`;
+  }catch(err){
+    if(cont) cont.innerHTML = `<div class="ri"><div class="rls">⚠ Errore lettura staging: ${esc2(err.message)}</div></div>`;
   }
 }
 
-async function salvaStaging(){
-  await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`,{
-    method:'POST',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-    body:JSON.stringify({id:'roberto_staging', dati:_stagingData, aggiornato_il:new Date().toISOString()})
-  });
+// Scrive 'roberto_staging' SENZA mai riscrivere una copia vecchia:
+// rilegge la riga fresca, applica `modifica(dati)` (che cambia solo ciò che serve,
+// es. lo stato di UNA proposta per id), PATCH condizionata su versione, fino a 5 tentativi.
+// `modifica` ritorna false se la modifica non è più applicabile (proposta sparita).
+// Ritorna true/false; in caso di errore avvisa con un toast.
+async function salvaStaging(modifica){
+  const H = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
+  const URL_STG = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`;
+  try{
+    for(let tentativo=1; tentativo<=5; tentativo++){
+      const g = await fetch(`${URL_STG}?id=eq.roberto_staging&select=dati,versione`, { headers:H, cache:'no-cache' });
+      if(!g.ok) throw new Error(await _msgErroreHttp(g));
+      const rows = await g.json();
+      const esiste = Array.isArray(rows) && rows.length>0;
+      const dati = (esiste && rows[0].dati) ? JSON.parse(JSON.stringify(rows[0].dati)) : {changeRequests:[], config:{}};
+      if(!Array.isArray(dati.changeRequests)) dati.changeRequests = [];
+      if(!dati.config || typeof dati.config!=='object') dati.config = {};
+      if(modifica(dati) === false) throw new Error('proposta non più presente (forse ritirata da Roberto) — ricarica l\'Inbox');
+      const ts = new Date().toISOString();
+      let r;
+      if(esiste){
+        const v = rows[0].versione;
+        r = await fetch(`${URL_STG}?id=eq.roberto_staging${v!=null?`&versione=eq.${v}`:''}&select=dati`, {
+          method:'PATCH', headers:{...H,'Prefer':'return=representation'},
+          body: JSON.stringify({ dati, aggiornato_il: ts })
+        });
+      } else {
+        // riga mai creata (nessuna proposta finora): la creo; se nel frattempo l'ha creata Roberto → 409 e riprovo
+        r = await fetch(`${URL_STG}?select=dati`, {
+          method:'POST', headers:{...H,'Prefer':'return=representation'},
+          body: JSON.stringify({ id:'roberto_staging', dati, aggiornato_il: ts })
+        });
+        if(r.status===409) continue;
+      }
+      if(!r.ok) throw new Error(await _msgErroreHttp(r));
+      const out = await r.json().catch(()=>[]);
+      if(Array.isArray(out) && out.length){ _stagingData = out[0].dati || dati; return true; }
+      // 0 righe aggiornate: la versione è cambiata (Roberto ha scritto) → rileggo e riapplico
+    }
+    throw new Error('conflitto di sincronizzazione (proposte in modifica altrove), riprova');
+  }catch(err){
+    toast('⚠ Proposte non aggiornate sul cloud: '+String(err.message||err).slice(0,90));
+    return false;
+  }
+}
+// modificatore per salvaStaging: applica fn alla proposta con quell'id nella copia fresca
+function _modificaCR(crId, fn){
+  return dati => {
+    const cr = (dati.changeRequests||[]).find(r=>r.id===crId);
+    if(!cr) return false;
+    fn(cr, dati);
+  };
 }
 
 function renderInbox(){
   const cont = document.getElementById('inbox-content');
   if(!cont) return;
-  const crs = [...(_stagingData?.changeRequests||[])].reverse();
-  const pending = crs.filter(r=>!r.stato||r.stato==='pending');
-  const archivio = crs.filter(r=>r.stato&&r.stato!=='pending');
+  const crs = [...(_stagingData?.changeRequests||[])].filter(_crInPlanning).reverse();
+  const pending = crs.filter(_crPending);
+  const archivio = crs.filter(r=>!_crPending(r));
 
   let html = '';
-  if(!crs.length){
-    html = '<div class="fc" style="text-align:center;padding:32px"><div style="font-size:36px;margin-bottom:10px">📭</div><div style="color:var(--text2)">Nessuna proposta ricevuta da Roberto</div></div>';
+
+  if(pending.length){
+    html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">⏳ ${pending.length} in attesa di approvazione</div>`;
+    html += pending.map(cr=>cardCR(cr, true)).join('');
   } else {
-    if(pending.length){
-      html += `<div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px">
-        <span style="background:var(--gold);color:#000;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px">${pending.length}</span>
-        In attesa di approvazione
-      </div>`;
-      html += pending.map(cr=>cardCR(cr,true)).join('');
-    } else {
-      html += '<div class="fc" style="text-align:center;padding:20px;margin-bottom:14px"><div style="font-size:24px">✅</div><div style="color:var(--text2);font-size:13px;margin-top:6px">Nessuna proposta in attesa</div></div>';
-    }
-    if(archivio.length){
-      html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin:20px 0 10px">Storico (${archivio.length})</div>`;
-      html += archivio.slice(0,30).map(cr=>cardCR(cr,false)).join('');
-    }
+    html += `<div class="fc" style="text-align:center;padding:24px"><div style="font-size:28px;margin-bottom:8px">✅</div><div style="font-size:14px;color:var(--text2)">Nessuna proposta in attesa</div></div>`;
+  }
+
+  if(archivio.length){
+    html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin:20px 0 10px">Storico (ultime ${Math.min(archivio.length,20)})</div>`;
+    html += archivio.slice(0,20).map(cr=>cardCR(cr, false)).join('');
   }
   cont.innerHTML = html;
 }
 
 function cardCR(cr, conAzioni){
+  const tipoLabel={TURNI_BATCH:'📋 Batch modifiche griglia',INTERV_ADD:'➕ Nuovo intervento',INTERV_MOD:'✏️ Modifica intervento',NOTA_OP:'📝 Nota operativa'};
   const statoColor={pending:'var(--gold)',approved:'var(--green)',rejected:'var(--red)'};
   const statoLabel={pending:'⏳ In attesa',approved:'✓ Approvata',rejected:'✗ Rifiutata'};
-  const col = statoColor[cr.stato||'pending']||'var(--text2)';
-  const ts = cr.timestamp ? new Date(cr.timestamp).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+  const stato = cr.stato||'pending';
+  const col = statoColor[stato]||'var(--text2)';
+  const _sq = s => (Array.isArray(s)?s:String(s||'').split(',')).map(x=>String(x).trim()).filter(Boolean);
+  const crIdJs = esc2(String(cr.id).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 
-  let bodyHtml = '';
-
-  // ── TURNI_BATCH (dalla griglia squadre Roberto) ────────────────
-  if(cr.tipo==='TURNI_BATCH' && cr.proposte){
+  let diffHtml = '';
+  if(cr.tipo==='TURNI_BATCH' && Array.isArray(cr.proposte)){
     const proposte = cr.proposte;
-    bodyHtml = `<div style="margin:10px 0">
-      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">📦 Batch · ${proposte.length} modifica${proposte.length!==1?'he':''}</div>
+    diffHtml = `<div style="margin:10px 0">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">📦 Batch · ${proposte.length} modific${proposte.length!==1?'he':'a'}</div>
       ${proposte.map((p,pi)=>{
         const icon=p.tipo==='RIMUOVI'?'🗑':'✏️';
         const colP=p.tipo==='RIMUOVI'?'var(--red)':'var(--teal)';
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;margin-bottom:5px;background:var(--navy);border-radius:8px;border-left:3px solid ${colP}">
           <div>
-            <div style="font-size:13px;font-weight:700">${icon} ${p.nomeDip}</div>
-            <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${fdateGiorno(p.data)} · ${p.cantiereName}${p.tipo!=='RIMUOVI'?` · ${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}`:''}</div>
-            ${p.note?`<div style="font-size:11px;color:var(--text2);font-style:italic">"${p.note}"</div>`:''}
+            <div style="font-size:13px;font-weight:700">${icon} ${esc2(p.nomeDip)}</div>
+            <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace">${fdateGiorno(p.data)} · ${esc2(p.cantiereName)}${p.tipo!=='RIMUOVI'?` · ${esc2(p.oraInizio||'08:00')}–${esc2(p.oraFine||'18:00')}`:''}</div>
+            ${p.note?`<div style="font-size:11px;color:var(--text2);font-style:italic">"${esc2(p.note)}"</div>`:''}
           </div>
-          ${conAzioni&&cr.stato!=='approved'?`<div style="display:flex;gap:5px;flex-shrink:0">
-            <button onclick="modificaProposta('${cr.id}',${pi})" style="background:rgba(232,184,75,.12);border:1px solid var(--gold);border-radius:6px;padding:5px 9px;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer">✏️</button>
-            <button onclick="rifiutaProposta('${cr.id}',${pi})" style="background:rgba(232,84,84,.1);border:1px solid var(--red);border-radius:6px;padding:5px 9px;color:var(--red);font-size:11px;font-weight:700;cursor:pointer">✗</button>
+          ${conAzioni?`<div style="display:flex;gap:5px;flex-shrink:0">
+            <button onclick="modificaProposta('${crIdJs}',${pi})" style="background:rgba(232,184,75,.12);border:1px solid var(--gold);border-radius:6px;padding:5px 9px;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer">✏️</button>
+            <button onclick="rifiutaProposta('${crIdJs}',${pi})" style="background:rgba(232,84,84,.1);border:1px solid var(--red);border-radius:6px;padding:5px 9px;color:var(--red);font-size:11px;font-weight:700;cursor:pointer">✗</button>
           </div>`:''}
         </div>`;
       }).join('')}
     </div>`;
-
-  // ── INTERV_ADD ─────────────────────────────────────────────────
   } else if(cr.tipo==='INTERV_ADD' && cr.payload){
     const p=cr.payload;
-    bodyHtml=`<div style="background:rgba(75,232,122,.07);border:1px solid rgba(75,232,122,.3);border-radius:8px;padding:10px;margin:8px 0;font-size:12px">
-      <div style="color:var(--green);font-weight:700;margin-bottom:5px">➕ Nuovo intervento</div>
-      <div>📅 ${fdateGiorno(p.data)} · ${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}${p.notturno?' 🌙':''}</div>
-      ${p.descrizione?`<div>📋 ${p.descrizione}</div>`:''}
-      ${(p.squadra||[]).length?`<div>👷 ${(Array.isArray(p.squadra)?p.squadra:p.squadra.split(',')).join(', ')}</div>`:''}
-    </div>`;
-  // ── INTERV_MOD ────────────────────────────────────────────────
+    diffHtml=`
+      <div style="background:rgba(75,232,122,.07);border:1px solid rgba(75,232,122,.3);border-radius:8px;padding:10px;margin:8px 0;font-size:12px">
+        <div style="color:var(--green);font-weight:700;margin-bottom:5px">+ Nuovo intervento</div>
+        <div>📅 ${fdateGiorno(p.data)} · ${esc2(p.oraInizio||'08:00')}–${esc2(p.oraFine||'18:00')}${p.notturno?' 🌙':''}</div>
+        ${p.descrizione?`<div>📋 ${esc2(p.descrizione)}</div>`:''}
+        ${_sq(p.squadra).length?`<div>👷 ${esc2(_sq(p.squadra).join(', '))}</div>`:''}
+      </div>`;
   } else if(cr.tipo==='INTERV_MOD' && cr.vecchio && cr.payload){
     const v=cr.vecchio, p=cr.payload;
-    bodyHtml=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
-      <div style="background:rgba(232,84,84,.07);border:1px solid rgba(232,84,84,.3);border-radius:8px;padding:10px;font-size:11px">
-        <div style="color:var(--red);font-weight:700;margin-bottom:5px">Prima</div>
-        <div>${v.oraInizio||'08:00'}–${v.oraFine||'18:00'}</div>
-        <div style="color:var(--text2)">${Array.isArray(v.squadra)?v.squadra.join(', '):(v.squadra||'—')}</div>
-      </div>
-      <div style="background:rgba(75,232,122,.07);border:1px solid rgba(75,232,122,.3);border-radius:8px;padding:10px;font-size:11px">
-        <div style="color:var(--green);font-weight:700;margin-bottom:5px">Dopo</div>
-        <div>${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}</div>
-        <div style="color:var(--text2)">${Array.isArray(p.squadra)?p.squadra.join(', '):(p.squadra||'—')}</div>
-      </div>
-    </div>`;
-  // ── NOTA_OP ───────────────────────────────────────────────────
+    const sq_v=_sq(v.squadra).join(', ')||'—';
+    const sq_p=_sq(p.squadra).join(', ')||'—';
+    diffHtml=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
+        <div style="background:rgba(232,84,84,.07);border:1px solid rgba(232,84,84,.3);border-radius:8px;padding:10px;font-size:11px">
+          <div style="color:var(--red);font-weight:700;margin-bottom:5px">Prima</div>
+          <div>${esc2(v.oraInizio||'08:00')}–${esc2(v.oraFine||'18:00')}</div>
+          <div style="color:var(--text2)">${esc2(sq_v)}</div>
+        </div>
+        <div style="background:rgba(75,232,122,.07);border:1px solid rgba(75,232,122,.3);border-radius:8px;padding:10px;font-size:11px">
+          <div style="color:var(--green);font-weight:700;margin-bottom:5px">Dopo</div>
+          <div>${esc2(p.oraInizio||'08:00')}–${esc2(p.oraFine||'18:00')}</div>
+          <div style="color:var(--text2)">${esc2(sq_p)}</div>
+        </div>
+      </div>`;
   } else if(cr.tipo==='NOTA_OP' && cr.payload){
-    bodyHtml=`<div style="background:var(--navy2);border:1px solid var(--brd);border-radius:8px;padding:10px;margin:8px 0;font-size:13px;color:var(--text2);font-style:italic">"${cr.payload.testo}"</div>`;
+    const urgCol={normale:'var(--green)',alta:'var(--gold)',urgente:'var(--red)'}[cr.payload.urgenza]||'var(--text2)';
+    diffHtml=`<div style="background:var(--navy2);border:1px solid var(--brd);border-radius:8px;padding:10px;margin:8px 0;font-size:13px;color:var(--text2);font-style:italic">"${esc2(cr.payload.testo)}"<div style="margin-top:5px;font-size:11px;color:${urgCol};font-style:normal;font-weight:700">Urgenza: ${esc2(cr.payload.urgenza)}</div></div>`;
   }
 
-  // Azioni principali
   const azioniHtml = conAzioni ? `
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button onclick="approvaCR('${cr.id}')" style="flex:2;background:var(--green);border:none;border-radius:8px;padding:11px;color:#000;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Approva tutto</button>
-      <button onclick="apriModificaCR('${cr.id}')" style="flex:1;background:rgba(232,184,75,.1);border:1px solid var(--gold);border-radius:8px;padding:11px;color:var(--gold);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✏️ Modifica</button>
-      <button onclick="rifiutaCR('${cr.id}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:11px;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
-    </div>` : (cr.stato==='approved'?`
-    <div style="margin-top:10px;display:flex;gap:6px">
-      <button onclick="modificaCRApprovato('${cr.id}')" style="font-size:11px;padding:5px 10px;background:var(--navy2);border:1px solid var(--brd);border-radius:6px;color:var(--text2);cursor:pointer">✏️ Modifica</button>
-      <button onclick="eliminaCRApprovato('${cr.id}')" style="font-size:11px;padding:5px 10px;background:rgba(232,84,84,.08);border:1px solid rgba(232,84,84,.2);border-radius:6px;color:var(--red);cursor:pointer">🗑 Elimina</button>
-    </div>`:
-    cr.motivoRifiuto?`<div style="font-size:11px;color:var(--red);margin-top:6px;font-style:italic">Motivo: ${cr.motivoRifiuto}</div>`:'');
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="approvaCR('${crIdJs}')" style="flex:1;background:var(--green);border:none;border-radius:8px;padding:10px;color:#000;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer">${cr.tipo==='TURNI_BATCH'?'✓ Approva tutto':'✓ Approva'}</button>
+      <button onclick="rifiutaCR('${crIdJs}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:10px;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
+    </div>` : (cr.motivoRifiuto?`<div style="font-size:11px;color:var(--red);margin-top:6px;font-style:italic">Motivo: ${esc2(cr.motivoRifiuto)}</div>`:'');
 
-  const tipoLabel={TURNI_BATCH:'📋 Batch modifiche griglia',INTERV_ADD:'➕ Nuovo intervento',INTERV_MOD:'✏️ Modifica intervento',NOTA_OP:'📝 Nota operativa'};
-
+  const ts = cr.timestamp ? new Date(cr.timestamp).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
   return `<div class="fc" style="margin-bottom:12px;border-left:3px solid ${col}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
-        <div style="font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.5px">${tipoLabel[cr.tipo]||cr.tipo}</div>
-        <div style="font-size:14px;font-weight:700;margin-top:2px">${cr.cantiereName||cr.propostoDa||'Roberto'}</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.5px">${esc2(tipoLabel[cr.tipo]||cr.tipo)}</div>
+        <div style="font-size:14px;font-weight:700;margin-top:3px">🏗️ ${esc2(cr.cantiereName||cr.propostoDa||'Roberto')}</div>
       </div>
-      <span style="font-size:11px;font-weight:700;color:${col};background:${col}18;border:1px solid ${col};border-radius:6px;padding:3px 8px;white-space:nowrap;flex-shrink:0">${statoLabel[cr.stato||'pending']}</span>
+      <span style="font-size:11px;font-weight:700;color:${col};background:${col}18;border:1px solid ${col};border-radius:6px;padding:3px 8px;white-space:nowrap">${esc2(statoLabel[stato]||stato)}</span>
     </div>
-    <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:4px">👤 ${cr.autore||cr.propostoDa||'Roberto'} · ${ts}</div>
-    ${bodyHtml}
-    ${cr.note?`<div style="font-size:12px;color:var(--text2);font-style:italic">"${cr.note}"</div>`:''}
+    <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:4px">
+      👤 ${esc2(cr.autore||cr.propostoDa||'Roberto')} · ${ts}
+    </div>
+    ${diffHtml}
+    ${cr.note?`<div style="font-size:12px;color:var(--text2);font-style:italic">"${esc2(cr.note)}"</div>`:''}
     ${azioniHtml}
   </div>`;
 }
 
-// ── MODIFICA SINGOLA PROPOSTA NEL BATCH ───────────────────────────────────
+// ── MODIFICA SINGOLA PROPOSTA NEL BATCH (solo locale, si applica con "Approva tutto") ──
 let _editCrId=null, _editPropIdx=null;
 
 function modificaProposta(crId, propIdx){
@@ -1496,308 +1604,112 @@ function apriModificaCR(crId){
   modificaProposta(crId, 0);
 }
 
-function rifiutaProposta(crId, propIdx){
-  const cr=(_stagingData?.changeRequests||[]).find(r=>r.id===crId);
-  if(!cr||!cr.proposte) return;
-  cr.proposte.splice(propIdx,1);
-  if(!cr.proposte.length){ cr.stato='rejected'; cr.rifiutatoIl=new Date().toISOString(); }
-  salvaStaging().then(()=>{ renderInbox(); aggiornaInboxBadge(); });
+async function rifiutaProposta(crId, propIdx){
+  const loc=(_stagingData?.changeRequests||[]).find(r=>r.id===crId);
+  if(!loc||!loc.proposte) return;
+  // le proposte del batch le tocca solo il planning: riparto dalla copia locale (con eventuali ritocchi) senza quella tolta
+  const proposte = JSON.parse(JSON.stringify(loc.proposte)); proposte.splice(propIdx,1);
+  const ok = await salvaStaging(_modificaCR(crId, cr=>{
+    cr.proposte = proposte;
+    if(!proposte.length){ cr.stato='rejected'; cr.rifiutatoIl=new Date().toISOString(); }
+  }));
+  renderInbox(); aggiornaInboxBadge();
+  if(ok) toast('Modifica tolta dal batch');
 }
 
-// ── APPROVAZIONE PRINCIPALE ───────────────────────────────────────────────
-async function approvaCR(crId){
-  const cr=(_stagingData?.changeRequests||[]).find(r=>r.id===crId);
-  if(!cr){ toast('⚠ Proposta non trovata'); return; }
-  try{
-    // Legge cantieri freschi dal cloud
-    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}, cache:'no-cache'
-    });
-    const getRows = getRes.ok ? await getRes.json() : [];
-    const remoto = (getRows&&getRows[0]?.dati) ? getRows[0].dati : {};
-    let cantieri = JSON.parse(JSON.stringify(remoto.cantieri||[])); // deep copy
-
-    // ── Applica TURNI_BATCH ──────────────────────────────────────────────
-    if(cr.tipo==='TURNI_BATCH' && cr.proposte){
-      cr.proposte.forEach(p=>{
-        const c=cantieri.find(x=>x.id===p.cantiereId);
-        if(!c) return;
-        if(!c.interventi) c.interventi=[];
-        if(p.tipo==='RIMUOVI'){
-          // Rimuove la persona dalla squadra dell'intervento
-          if(p.intervId){
-            const iv=c.interventi.find(x=>x.id===p.intervId);
-            if(iv&&Array.isArray(iv.squadra)) iv.squadra=iv.squadra.filter(n=>n.toLowerCase()!==p.nomeDip.toLowerCase());
-          }
-        } else {
-          // Modifica o crea intervento
-          if(p.intervId){
-            const iv=c.interventi.find(x=>x.id===p.intervId);
-            if(iv){
-              iv.oraInizio=p.oraInizio||iv.oraInizio;
-              iv.oraFine=p.oraFine||iv.oraFine;
-              if(p.nomeDip&&!((iv.squadra||[]).includes(p.nomeDip))) (iv.squadra=iv.squadra||[]).push(p.nomeDip);
-            }
-          } else {
-            // Cerca intervento esistente per data/cantiere
-            let iv=c.interventi.find(x=>x.data===p.data);
-            if(iv){
-              iv.oraInizio=p.oraInizio||iv.oraInizio;
-              iv.oraFine=p.oraFine||iv.oraFine;
-              if(p.nomeDip&&!((iv.squadra||[]).includes(p.nomeDip))) (iv.squadra=iv.squadra||[]).push(p.nomeDip);
-            } else {
-              c.interventi.push({id:'iv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),data:p.data,oraInizio:p.oraInizio||'08:00',oraFine:p.oraFine||'18:00',squadra:p.nomeDip?[p.nomeDip]:[],descrizione:p.note||''});
-            }
-          }
-        }
-      });
-    }
-    // ── Applica INTERV_ADD ──────────────────────────────────────────────
-    else if(cr.tipo==='INTERV_ADD'){
-      const c=cantieri.find(x=>x.id===cr.cantiereId);
-      if(c){ if(!c.interventi)c.interventi=[]; c.interventi.push(cr.payload); }
-    }
-    // ── Applica INTERV_MOD ──────────────────────────────────────────────
-    else if(cr.tipo==='INTERV_MOD'){
-      const c=cantieri.find(x=>x.id===cr.cantiereId);
-      if(c){ const idx=(c.interventi||[]).findIndex(iv=>iv.id===cr.intervId); if(idx>=0)c.interventi[idx]={...cr.payload}; }
-    }
-    // ── Applica NOTA_OP ──────────────────────────────────────────────────
-    else if(cr.tipo==='NOTA_OP'){
-      const c=cantieri.find(x=>x.id===cr.cantiereId);
-      if(c){ if(!c.noteOperative)c.noteOperative=[]; c.noteOperative.push({...cr.payload,autore:cr.autore,data:cr.timestamp?.slice(0,10)}); }
-    }
-
-    // Salva cantieri aggiornati su cloud
-    const merged={...remoto, cantieri};
-    await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`,{
-      method:'PATCH',
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({dati:merged,aggiornato_il:new Date().toISOString()})
-    });
-    DB.cantieri=cantieri; save();
-
-    // Marca come approvata nello staging
-    cr.stato='approved'; cr.approvatoIl=new Date().toISOString();
-    await salvaStaging();
-    aggiornaInboxBadge(); renderInbox();
-    toast('✓ Modifiche approvate e applicate al Planning — Roberto le vedrà al prossimo sync');
-  }catch(err){ toast('⚠ Errore: '+err.message); }
-}
-
-async function rifiutaCR(crId){
-  const motivo=prompt('Motivo del rifiuto (Roberto lo vedrà nella sua app):');
-  if(motivo===null) return;
-  const cr=(_stagingData?.changeRequests||[]).find(r=>r.id===crId);
-  if(!cr) return;
-  cr.stato='rejected'; cr.motivoRifiuto=motivo||''; cr.rifiutatoIl=new Date().toISOString();
-  await salvaStaging(); aggiornaInboxBadge(); renderInbox();
-  toast('Proposta rifiutata');
-}
-
-// ── POST-APPROVAL: MODIFICA / ELIMINA ─────────────────────────────────────
-async function modificaCRApprovato(crId){
-  const cr=(_stagingData?.changeRequests||[]).find(r=>r.id===crId);
-  if(!cr) return;
-  // Riporta a pending per permettere la ri-approvazione
-  cr.stato='pending'; cr.approvatoIl=null;
-  await salvaStaging(); renderInbox(); aggiornaInboxBadge();
-  toast('Modifica riaperta — correggila e riapprova');
-}
-
-async function eliminaCRApprovato(crId){
-  if(!confirm('Eliminare questa modifica dallo storico?')) return;
-  _stagingData.changeRequests=(_stagingData.changeRequests||[]).filter(r=>r.id!==crId);
-  await salvaStaging(); renderInbox(); aggiornaInboxBadge();
-  toast('Modifica eliminata dallo storico');
-}
-
-// ── GESTIONE PIN ──────────────────────────────────────────────────────────
-// pendenti con diff visivo, permette approvazione/rifiuto.
-// Le modifiche approvate vengono applicate al DB principale.
-// ============================================================
-let _stagingData = null;
-
-async function caricaInbox(){
-  const cont = document.getElementById('inbox-content');
-  if(cont) cont.innerHTML = '<div class="ri"><div class="rls">⏳ Lettura proposte in corso...</div></div>';
-  try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.roberto_staging&select=dati,aggiornato_il`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
-    });
-    const rows = res.ok ? await res.json() : [];
-    _stagingData = (rows&&rows[0]&&rows[0].dati) ? rows[0].dati : {changeRequests:[], config:{}};
-    renderInbox();
-    aggiornaInboxBadge();
-  }catch(err){
-    if(cont) cont.innerHTML = `<div class="ri"><div class="rls">⚠ Errore lettura staging: ${err.message}</div></div>`;
-  }
-}
-
-async function salvaStaging(){
-  await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.roberto_staging`,{
-    method:'PATCH',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body: JSON.stringify({dati:_stagingData, aggiornato_il:new Date().toISOString()})
-  });
-}
-
-function aggiornaInboxBadge(){
-  if(!_stagingData) return;
-  const n = (_stagingData.changeRequests||[]).filter(r=>r.stato==='pending').length;
-  const b = document.getElementById('sb-inbox-badge');
-  if(b){ b.textContent=n; b.style.display=n?'inline':'none'; }
-}
-
-function renderInbox(){
-  const cont = document.getElementById('inbox-content');
-  if(!cont) return;
-  const crs = [...(_stagingData?.changeRequests||[])].reverse();
-  const pending = crs.filter(r=>r.stato==='pending');
-  const archivio = crs.filter(r=>r.stato!=='pending');
-
-  let html = '';
-
-  if(pending.length){
-    html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">⏳ ${pending.length} in attesa di approvazione</div>`;
-    html += pending.map(cr=>cardCR(cr, true)).join('');
-  } else {
-    html += `<div class="fc" style="text-align:center;padding:24px"><div style="font-size:28px;margin-bottom:8px">✅</div><div style="font-size:14px;color:var(--text2)">Nessuna proposta in attesa</div></div>`;
-  }
-
-  if(archivio.length){
-    html += `<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin:20px 0 10px">Storico (ultime ${Math.min(archivio.length,20)})</div>`;
-    html += archivio.slice(0,20).map(cr=>cardCR(cr, false)).join('');
-  }
-  cont.innerHTML = html;
-}
-
-function cardCR(cr, conAzioni){
-  const tipoLabel={INTERV_ADD:'➕ Nuovo intervento',INTERV_MOD:'✏️ Modifica intervento',NOTA_OP:'📝 Nota operativa'};
-  const statoColor={pending:'var(--gold)',approved:'var(--green)',rejected:'var(--red)'};
-  const statoLabel={pending:'⏳ In attesa',approved:'✓ Approvata',rejected:'✗ Rifiutata'};
-  const col = statoColor[cr.stato]||'var(--text2)';
-
-  let diffHtml = '';
-  if(cr.tipo==='INTERV_ADD' && cr.payload){
-    const p=cr.payload;
-    diffHtml=`
-      <div style="background:rgba(75,232,122,.07);border:1px solid rgba(75,232,122,.3);border-radius:8px;padding:10px;margin:8px 0;font-size:12px">
-        <div style="color:var(--green);font-weight:700;margin-bottom:5px">+ Nuovo intervento</div>
-        <div>📅 ${fdateGiorno(p.data)} · ${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}${p.notturno?' 🌙':''}</div>
-        ${p.descrizione?`<div>📋 ${p.descrizione}</div>`:''}
-        ${(p.squadra||[]).length?`<div>👷 ${(Array.isArray(p.squadra)?p.squadra:p.squadra.split(',')).join(', ')}</div>`:''}
-      </div>`;
-  } else if(cr.tipo==='INTERV_MOD' && cr.vecchio && cr.payload){
-    const v=cr.vecchio, p=cr.payload;
-    const sq_v=(Array.isArray(v.squadra)?v.squadra:[v.squadra||'']).join(', ')||'—';
-    const sq_p=(Array.isArray(p.squadra)?p.squadra:[p.squadra||'']).join(', ')||'—';
-    diffHtml=`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
-        <div style="background:rgba(232,84,84,.07);border:1px solid rgba(232,84,84,.3);border-radius:8px;padding:10px;font-size:11px">
-          <div style="color:var(--red);font-weight:700;margin-bottom:5px">Prima</div>
-          <div>${v.oraInizio||'08:00'}–${v.oraFine||'18:00'}</div>
-          <div style="color:var(--text2)">${sq_v}</div>
-        </div>
-        <div style="background:rgba(75,232,122,.07);border:1px solid rgba(75,232,122,.3);border-radius:8px;padding:10px;font-size:11px">
-          <div style="color:var(--green);font-weight:700;margin-bottom:5px">Dopo</div>
-          <div>${p.oraInizio||'08:00'}–${p.oraFine||'18:00'}</div>
-          <div style="color:var(--text2)">${sq_p}</div>
-        </div>
-      </div>`;
-  } else if(cr.tipo==='NOTA_OP' && cr.payload){
-    const urgCol={normale:'var(--green)',alta:'var(--gold)',urgente:'var(--red)'}[cr.payload.urgenza]||'var(--text2)';
-    diffHtml=`<div style="background:var(--navy2);border:1px solid var(--brd);border-radius:8px;padding:10px;margin:8px 0;font-size:13px;color:var(--text2);font-style:italic">"${cr.payload.testo}"<div style="margin-top:5px;font-size:11px;color:${urgCol};font-style:normal;font-weight:700">Urgenza: ${cr.payload.urgenza}</div></div>`;
-  }
-
-  const azioniHtml = conAzioni ? `
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="approvaCR('${cr.id}')" style="flex:1;background:var(--green);border:none;border-radius:8px;padding:10px;color:#000;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Approva</button>
-      <button onclick="rifiutaCR('${cr.id}')" style="flex:1;background:transparent;border:1.5px solid var(--red);border-radius:8px;padding:10px;color:var(--red);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✗ Rifiuta</button>
-    </div>` : '';
-
-  return `<div class="fc" style="margin-bottom:12px;border-left:3px solid ${col}">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.5px">${tipoLabel[cr.tipo]||cr.tipo}</div>
-        <div style="font-size:14px;font-weight:700;margin-top:3px">🏗️ ${cr.cantiereName}</div>
-      </div>
-      <span style="font-size:11px;font-weight:700;color:${col};background:${col}18;border:1px solid ${col};border-radius:6px;padding:3px 8px;white-space:nowrap">${statoLabel[cr.stato]||cr.stato}</span>
-    </div>
-    <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:4px">
-      👤 ${cr.autore} · ${new Date(cr.timestamp).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}
-    </div>
-    ${diffHtml}
-    ${cr.note?`<div style="font-size:12px;color:var(--text2);font-style:italic">"${cr.note}"</div>`:''}
-    ${azioniHtml}
-  </div>`;
-}
-
+// ── APPROVAZIONE ─────────────────────────────────────────────
+// Applica la proposta al DB locale e salva con cloudSalvaOra() (lock su versione).
+// Solo se il salvataggio è riuscito marca la proposta come approvata nello staging.
 async function approvaCR(crId){
   const cr = (_stagingData?.changeRequests||[]).find(r=>r.id===crId);
   if(!cr){ toast('⚠ Proposta non trovata'); return; }
+  if(!['TURNI_BATCH','INTERV_ADD','INTERV_MOD','NOTA_OP'].includes(cr.tipo)){ toast('⚠ Tipo di proposta non gestito dal Planning: '+cr.tipo); return; }
+  if(!Array.isArray(DB.cantieri)){ toast('⚠ Dati non ancora caricati, riprova tra un istante'); return; }
+
+  const backup = JSON.stringify(DB.cantieri);   // per annullare se il cloud non salva
+  const trovaC = id => DB.cantieri.find(x=>x.id===id);
+  // Un'attività fuori dal periodo ESTENDE il cantiere nel dato: così bot, app Roberto e lavagna la vedono tutti
+  const _estendiPeriodo=(c,dataIv)=>{
+    if(!c||!dataIv) return;
+    const fin=c.periodoFine||c.periodoInizio||'';
+    if(fin && dataIv>fin){ c.periodoFine=dataIv; toast('📅 Fine cantiere estesa al '+dataIv.split('-').reverse().join('/')+' (attività programmata)'); }
+    if(c.periodoInizio && dataIv<c.periodoInizio){ c.periodoInizio=dataIv; toast('📅 Inizio cantiere anticipato al '+dataIv.split('-').reverse().join('/')+' (attività programmata)'); }
+    if(c.stato==='concluso' && dataIv>=today()){ c.stato='in corso'; toast('🔓 Cantiere riaperto: c\'è un\'attività programmata'); }
+  };
+  const _metti = (c, iv) => {   // aggiunge o sostituisce per id (mai doppioni se si riapprova)
+    if(!c.interventi) c.interventi=[];
+    const i = iv && iv.id!=null ? c.interventi.findIndex(x=>x.id===iv.id) : -1;
+    if(i>=0) c.interventi[i]={...iv}; else c.interventi.push({...iv});
+  };
 
   try{
-    // Rileggo il remoto fresco prima di modificarlo (principio merge selettivo)
-    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
-    });
-    const getRows = getRes.ok ? await getRes.json() : [];
-    const remoto = (getRows&&getRows[0]&&getRows[0].dati) ? getRows[0].dati : {};
-
-    // Applica la modifica al campo cantieri
-    let cantieri = [...(remoto.cantieri||[])];
-    // Un'attività fuori dal periodo ESTENDE il cantiere nel dato: così bot, app Roberto e lavagna la vedono tutti
-    const _estendiPeriodo=(c,dataIv)=>{
-      if(!c||!dataIv) return;
-      const fin=c.periodoFine||c.periodoInizio||'';
-      if(fin && dataIv>fin){ c.periodoFine=dataIv; toast('📅 Fine cantiere estesa al '+dataIv.split('-').reverse().join('/')+' (attività programmata)'); }
-      if(c.periodoInizio && dataIv<c.periodoInizio){ c.periodoInizio=dataIv; toast('📅 Inizio cantiere anticipato al '+dataIv.split('-').reverse().join('/')+' (attività programmata)'); }
-      const oggiE=new Date().toISOString().slice(0,10);
-      if(c.stato==='concluso' && dataIv>=oggiE){ c.stato='in corso'; toast('🔓 Cantiere riaperto: c\'è un\'attività programmata'); }
-    };
-    if(cr.tipo==='INTERV_ADD'){
-      const c = cantieri.find(x=>x.id===cr.cantiereId);
+    if(cr.tipo==='TURNI_BATCH'){
+      let applicate=0;
+      (cr.proposte||[]).forEach(p=>{
+        const c=trovaC(p.cantiereId);
+        if(!c) return;
+        if(!c.interventi) c.interventi=[];
+        const nome=String(p.nomeDip||'');
+        if(p.tipo==='RIMUOVI'){
+          // Rimuove la persona dalla squadra dell'intervento
+          const iv=p.intervId ? c.interventi.find(x=>x.id===p.intervId) : null;
+          if(iv){ iv.squadra=squadraArray(iv).filter(n=>n.toLowerCase()!==nome.toLowerCase()); applicate++; }
+        } else {
+          // Modifica l'intervento indicato, o quello dello stesso giorno, o ne crea uno nuovo
+          let iv=p.intervId ? c.interventi.find(x=>x.id===p.intervId) : null;
+          if(!iv && !p.intervId) iv=c.interventi.find(x=>x.data===p.data);
+          if(iv){
+            iv.oraInizio=p.oraInizio||iv.oraInizio;
+            iv.oraFine=p.oraFine||iv.oraFine;
+            const sq=squadraArray(iv);
+            if(nome && !sq.some(n=>n.toLowerCase()===nome.toLowerCase())) sq.push(nome);
+            iv.squadra=sq;
+          } else {
+            c.interventi.push({id:'iv_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),data:p.data,oraInizio:p.oraInizio||'08:00',oraFine:p.oraFine||'18:00',squadra:nome?[nome]:[],descrizione:p.note||''});
+          }
+          _estendiPeriodo(c, p.data);
+          applicate++;
+        }
+      });
+      if(!applicate){ toast('⚠ Nessuna modifica applicabile (cantieri o interventi non trovati)'); return; }
+    } else if(cr.tipo==='INTERV_ADD'){
+      const c = trovaC(cr.cantiereId);
       if(!c){ toast('⚠ Cantiere non trovato nel database principale'); return; }
-      if(!c.interventi) c.interventi=[];
-      c.interventi.push(cr.payload);
-      _estendiPeriodo(c, cr.payload.data);
+      _metti(c, cr.payload);
+      _estendiPeriodo(c, cr.payload && cr.payload.data);
     } else if(cr.tipo==='INTERV_MOD'){
-      const c = cantieri.find(x=>x.id===cr.cantiereId);
+      const c = trovaC(cr.cantiereId);
       if(!c){ toast('⚠ Cantiere non trovato'); return; }
-      const idx = (c.interventi||[]).findIndex(iv=>iv.id===cr.intervId);
-      if(idx>=0) c.interventi[idx]={...cr.payload};
-      else c.interventi.push(cr.payload); // se nel frattempo è stato rimosso, lo riaggiunge
-      _estendiPeriodo(c, cr.payload.data);
+      _metti(c, cr.intervId!=null ? {...cr.payload, id: cr.intervId} : cr.payload);   // se nel frattempo è stato rimosso, lo riaggiunge
+      _estendiPeriodo(c, cr.payload && cr.payload.data);
     } else if(cr.tipo==='NOTA_OP'){
-      const c = cantieri.find(x=>x.id===cr.cantiereId);
-      if(c){
-        if(!c.noteOperative) c.noteOperative=[];
-        c.noteOperative.push({testo:cr.payload.testo,urgenza:cr.payload.urgenza,autore:cr.autore,data:cr.timestamp.slice(0,10)});
-      }
+      const c = trovaC(cr.cantiereId);
+      if(!c){ toast('⚠ Cantiere non trovato'); return; }
+      if(!c.noteOperative) c.noteOperative=[];
+      c.noteOperative.push({testo:cr.payload.testo,urgenza:cr.payload.urgenza,autore:cr.autore,data:cr.timestamp?isoLocale(new Date(cr.timestamp)):today()});
     }
 
-    // Salva la versione aggiornata sul cloud (merge selettivo: scrivo solo cantieri)
-    const merged={...remoto, cantieri};
-    await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`,{
-      method:'PATCH',
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({dati:merged,aggiornato_il:new Date().toISOString()})
-    });
+    // Salva sul cloud con lock ottimistico (merge non distruttivo come ogni altro salvataggio)
+    save(); clearTimeout(cloudAutoSaveTimer); _modifichePendenti=false;
+    const ok = await cloudSalvaOra(true);
+    if(!ok){
+      DB.cantieri = JSON.parse(backup); save();   // annullo in locale: la proposta resta da approvare
+      toast('⚠ Proposta NON applicata: salvataggio sul cloud non riuscito');
+      return;
+    }
 
-    // Aggiorna il DB locale
-    DB.cantieri = cantieri;
-    save();
-
-    // Aggiorna lo stato nella staging
-    cr.stato='approved';
-    cr.approvatoIl=new Date().toISOString();
-    await salvaStaging();
-
+    // Solo ora marco la proposta come approvata (con i ritocchi fatti al batch)
+    const proposteFinali = Array.isArray(cr.proposte) ? JSON.parse(JSON.stringify(cr.proposte)) : null;
+    const okStg = await salvaStaging(_modificaCR(crId, c=>{
+      c.stato='approved'; c.approvatoIl=new Date().toISOString();
+      if(proposteFinali) c.proposte=proposteFinali;
+    }));
     aggiornaInboxBadge();
     renderInbox();
-    toast(`✓ Proposta approvata e applicata al Planning`);
+    if(okStg) toast('✓ Proposta approvata e applicata al Planning');
+    else toast('⚠ Applicata al Planning, ma la proposta risulta ancora "in attesa": non riapprovarla, riprova a ricaricare l\'Inbox');
   }catch(err){
+    try{ DB.cantieri = JSON.parse(backup); save(); }catch(_){}
     toast(`⚠ Errore: ${err.message}`);
   }
 }
@@ -1807,13 +1719,12 @@ async function rifiutaCR(crId){
   if(motivo===null) return; // annullato
   const cr = (_stagingData?.changeRequests||[]).find(r=>r.id===crId);
   if(!cr) return;
-  cr.stato='rejected';
-  cr.motivoRifiuto=motivo||'';
-  cr.rifiutatoIl=new Date().toISOString();
-  await salvaStaging();
+  const ok = await salvaStaging(_modificaCR(crId, c=>{
+    c.stato='rejected'; c.motivoRifiuto=motivo||''; c.rifiutatoIl=new Date().toISOString();
+  }));
   aggiornaInboxBadge();
   renderInbox();
-  toast('Proposta rifiutata');
+  if(ok) toast('Proposta rifiutata');
 }
 
 // ── GESTIONE PIN ──────────────────────────────────────────────
@@ -1831,10 +1742,8 @@ async function salvaPin(){
     // Hash SHA-256 del PIN (stesso algoritmo dell'app Roberto)
     const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin));
     const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    if(!_stagingData){ _stagingData={changeRequests:[],config:{}}; }
-    _stagingData.config.pinHash=hash;
-    _stagingData.config.pinSetAt=new Date().toISOString();
-    await salvaStaging();
+    const ok = await salvaStaging(d=>{ d.config.pinHash=hash; d.config.pinSetAt=new Date().toISOString(); });
+    if(!ok) return;
     document.getElementById('inbox-pin-setup').style.display='none';
     document.getElementById('inbox-pin-input').value='';
     toast(`✓ PIN ${pin} impostato — condividilo con Roberto`);
@@ -1959,13 +1868,13 @@ async function r2Carica(){
 /* ═══════════ ALLOC_LIB v1 — LIBRERIA CONDIVISA DISPONIBILITÀ & MOVIMENTI ═══════════
    Funzioni PURE, identiche in Planning e Layout Giornate. Se modifichi qui,
    replica lo stesso blocco nell'altra app e alza la versione. */
-const ALLOC_LIB_V='2';
-// una allocazione è CHIUSA solo quando è stata effettivamente rientrata o trasferita:
+const ALLOC_LIB_V='3';
+// una allocazione è CHIUSA solo quando è stata effettivamente rientrata o trasferita (o annullata):
 // la data_rientro "programmata" NON la chiude da sola (altrimenti sparisce pur essendo ancora fuori)
-function allocChiusa(a){ return !!a && (a.stato==='rientrata' || a.stato==='trasferita'); }
-// è attiva (occupa la risorsa) alla data D?
+function allocChiusa(a){ return !!a && (a.stato==='rientrata' || a.stato==='trasferita' || a.stato==='annullata'); }
+// è attiva (occupa la risorsa) alla data D?  Un'allocazione ANNULLATA non lo è mai.
 function allocAttivaA(a, allaData){
-  if(!a || (a.data_uscita||'') > allaData) return false;
+  if(!a || a.stato==='annullata' || (a.data_uscita||'') > allaData) return false;
   if(!allocChiusa(a)) return true;                       // aperta: occupa finché non la chiudi, anche oltre il previsto
   return !!a.data_rientro && a.data_rientro>=allaData;    // chiusa: occupa fino alla data effettiva di chiusura
 }
@@ -2013,6 +1922,15 @@ function movRientro(allocId, data){
   return {patch:[{id:allocId, body:{data_rientro:data, data_rientro_effettiva:data, stato:'rientrata', aggiornato_il:new Date().toISOString()}}], insert:[]};
 }
 /* ═══════════ fine ALLOC_LIB ═══════════ */
+
+// Scrittura REST su risorse/giacenze/depositi/allocazioni: se la risposta non è 2xx
+// lancia un errore con il messaggio leggibile del DB (niente "✓" su scritture fallite).
+async function _r2Scrivi(url, opts){
+  const r = await fetch(url, opts);
+  if(!r.ok) throw new Error(await _msgErroreHttp(r));
+  return r;
+}
+function _r2Err(e){ return String((e && e.message) || e).slice(0,120); }
 
 // disponibilità di una risorsa a una certa data = totale − allocazioni attive quel giorno
 function r2Impegnato(risorsaId, allaData){
@@ -2147,7 +2065,7 @@ function r2RenderAlloc(){
   // trasferimenti in partenza: se questa allocazione si chiude perché la risorsa va a un altro cantiere, dillo
   const _versoDove=(a)=>{
     if(!a.data_rientro) return null;
-    const gDopo=new Date(new Date(a.data_rientro+'T12:00').getTime()+86400000).toISOString().slice(0,10);
+    const gDopo=_isoAdd(a.data_rientro, 1);
     const dest=R2.allocazioni.find(x=>x.da_tipo==='cantiere' && x.da_nome===a.cantiere_nome && x.risorsa_id===a.risorsa_id && (x.data_uscita===gDopo||x.data_uscita===a.data_rientro));
     return dest?{nome:dest.cantiere_nome, data:dest.data_uscita}:null;
   };
@@ -2231,24 +2149,24 @@ async function r2SalvaRisorsa(){
   try{
     let rid=_r2EditRisorsa;
     if(rid){
-      await fetch(`${SUPABASE_URL}/rest/v1/risorse?id=eq.${rid}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(payload)});
+      await _r2Scrivi(`${SUPABASE_URL}/rest/v1/risorse?id=eq.${rid}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(payload)});
       // aggiorna giacenze dai campi
       const inputs=[...document.querySelectorAll('.r2r-gia')];
       for(const inp of inputs){
         const dep=inp.dataset.dep, q=parseFloat(inp.value||0);
         const esiste=R2.giacenze.find(g=>g.risorsa_id===rid && g.deposito_id===dep);
-        if(esiste){ await fetch(`${SUPABASE_URL}/rest/v1/giacenze?risorsa_id=eq.${rid}&deposito_id=eq.${dep}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify({qty:q})}); }
-        else if(q>0){ await fetch(`${SUPABASE_URL}/rest/v1/giacenze`,{method:'POST',headers:R2_HDR,body:JSON.stringify({risorsa_id:rid,deposito_id:dep,qty:q})}); }
+        if(esiste){ await _r2Scrivi(`${SUPABASE_URL}/rest/v1/giacenze?risorsa_id=eq.${rid}&deposito_id=eq.${dep}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify({qty:q})}); }
+        else if(q>0){ await _r2Scrivi(`${SUPABASE_URL}/rest/v1/giacenze`,{method:'POST',headers:R2_HDR,body:JSON.stringify({risorsa_id:rid,deposito_id:dep,qty:q})}); }
       }
     } else {
       rid='r2_'+Date.now().toString(36);
-      await fetch(`${SUPABASE_URL}/rest/v1/risorse`,{method:'POST',headers:R2_HDR,body:JSON.stringify({...payload,id:rid})});
+      await _r2Scrivi(`${SUPABASE_URL}/rest/v1/risorse`,{method:'POST',headers:R2_HDR,body:JSON.stringify({...payload,id:rid})});
       const dep0=R2.depositi[0]?.id;
-      if(dep0) await fetch(`${SUPABASE_URL}/rest/v1/giacenze`,{method:'POST',headers:R2_HDR,body:JSON.stringify({risorsa_id:rid,deposito_id:dep0,qty})});
+      if(dep0) await _r2Scrivi(`${SUPABASE_URL}/rest/v1/giacenze`,{method:'POST',headers:R2_HDR,body:JSON.stringify({risorsa_id:rid,deposito_id:dep0,qty})});
     }
     closeModal('modal-r2-risorsa'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab);
     toast('✓ Risorsa salvata');
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 
 async function r2EliminaRisorsa(){
@@ -2257,10 +2175,10 @@ async function r2EliminaRisorsa(){
   if(imp>0){ toast('⚠ Risorsa impegnata in allocazioni attive: rientra prima'); return; }
   if(!confirm('Eliminare questa risorsa e le sue giacenze? Le allocazioni storiche restano.')) return;
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/risorse?id=eq.${_r2EditRisorsa}`,{method:'DELETE',headers:R2_HDR});
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/risorse?id=eq.${_r2EditRisorsa}`,{method:'DELETE',headers:R2_HDR});
     closeModal('modal-r2-risorsa'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab);
     toast('✓ Risorsa eliminata');
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 
 // ── DEPOSITI: crea/elimina-se-vuoto ──
@@ -2282,9 +2200,9 @@ async function r2AggiungiDeposito(){
   if(!nome){ toast('Nome deposito obbligatorio'); return; }
   const id='dep_'+Date.now().toString(36);
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/depositi`,{method:'POST',headers:R2_HDR,body:JSON.stringify({id,nome,tipo:'deposito'})});
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/depositi`,{method:'POST',headers:R2_HDR,body:JSON.stringify({id,nome,tipo:'deposito'})});
     R2.loaded=false; await r2Carica(); r2ApriDeposito(); toast('✓ Deposito aggiunto');
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 async function r2EliminaDeposito(id){
   const pezzi=R2.giacenze.filter(g=>g.deposito_id===id).reduce((s,g)=>s+parseFloat(g.qty||0),0);
@@ -2292,10 +2210,10 @@ async function r2EliminaDeposito(id){
   if(!confirm('Eliminare questo deposito vuoto?')) return;
   try{
     // rimuove eventuali righe giacenza a zero, poi il deposito
-    await fetch(`${SUPABASE_URL}/rest/v1/giacenze?deposito_id=eq.${id}`,{method:'DELETE',headers:R2_HDR});
-    await fetch(`${SUPABASE_URL}/rest/v1/depositi?id=eq.${id}`,{method:'DELETE',headers:R2_HDR});
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/giacenze?deposito_id=eq.${id}`,{method:'DELETE',headers:R2_HDR});
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/depositi?id=eq.${id}`,{method:'DELETE',headers:R2_HDR});
     R2.loaded=false; await r2Carica(); r2ApriDeposito(); toast('✓ Deposito eliminato');
-  }catch(e){ toast('⚠ Errore (forse referenziato da allocazioni): '+String(e).slice(0,50)); }
+  }catch(e){ toast('⚠ Errore (forse referenziato da allocazioni): '+_r2Err(e)); }
 }
 
 // ── ALLOCAZIONE: scarico risorsa → cantiere per arco temporale ──
@@ -2332,7 +2250,7 @@ function r2AllocDisp(){
   const tot=parseFloat(r.qty_totale||0);
   // impegnato alla data esclusa l'allocazione che sto modificando
   let imp=R2.allocazioni.filter(a=>a.risorsa_id===rid && String(a.id)!==String(_r2EditAlloc||'')
-      && a.data_uscita<=data && (!a.data_rientro||a.data_rientro>=data))
+      && allocAttivaA(a, data))   // stessa regola di ALLOC_LIB (aperte fino alla chiusura, annullate mai)
     .reduce((s,a)=>s+parseFloat(a.qty||0),0);
   const disp=tot-imp;
   const ok=q<=disp;
@@ -2357,12 +2275,12 @@ async function r2SalvaAlloc(){
     a_tipo: cid?'cantiere':'deposito', a_id: cid||depId, a_nome: cid?cNome:depNome,
     aggiornato_il:new Date().toISOString() };
   try{
-    if(_r2EditAlloc){ await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${_r2EditAlloc}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(payload)}); }
-    else { await fetch(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:R2_HDR,body:JSON.stringify(payload)}); }
+    if(_r2EditAlloc){ await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${_r2EditAlloc}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(payload)}); }
+    else { await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:R2_HDR,body:JSON.stringify(payload)}); }
     closeModal('modal-r2-alloc'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab);
     if(typeof _r2AfterSave==='function'){ const cb=_r2AfterSave; _r2AfterSave=null; cb(); }
     toast('✓ Allocazione salvata');
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 /* ── MOVIMENTI: trasferimento tra cantieri e rientro al deposito (usa ALLOC_LIB) ── */
 let _r2MovAlloc=null;
@@ -2393,9 +2311,13 @@ function r2ApriMov(allocId, tipo){
   openModal('modal-r2-mov');
 }
 async function _r2EseguiOps(ops){
-  for(const p of (ops.patch||[])) await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${p.id}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(p.body)});
-  for(const ins of (ops.insert||[])) await fetch(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:R2_HDR,body:JSON.stringify(ins)});
+  for(const p of (ops.patch||[])) await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${p.id}`,{method:'PATCH',headers:R2_HDR,body:JSON.stringify(p.body)});
+  for(const ins of (ops.insert||[])) await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni`,{method:'POST',headers:R2_HDR,body:JSON.stringify(ins)});
 }
+// TRASFERIMENTO: una sola chiamata atomica al DB (RPC trasferisci_risorsa) che chiude le
+// allocazioni aperte sul cantiere di partenza il giorno prima (FIFO, anche parziale) e apre
+// la destinazione. movTrasferimento() resta in ALLOC_LIB (condivisa con Layout Giornate) ma
+// non si usa più per scrivere: niente più PATCH+POST separati che possono fermarsi a metà.
 async function r2EseguiTrasferimento(){
   const a=_r2MovAlloc; if(!a) return;
   const destId=document.getElementById('r2m-dest').value;
@@ -2403,13 +2325,20 @@ async function r2EseguiTrasferimento(){
   const qty=parseFloat(document.getElementById('r2m-qty').value||0);
   const data=document.getElementById('r2m-data').value||r2today();
   if(!qty||qty<=0){ toast('Quantità non valida'); return; }
-  const ops=movTrasferimento(R2.allocazioni, a.risorsa_id, a.cantiere_id, a.cantiere_nome, dest.id, dest.nome, qty, data, null);
-  if(ops.errore){ toast('⚠ '+ops.errore); return; }
   try{
-    await _r2EseguiOps(ops);
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/trasferisci_risorsa`,{method:'POST',headers:R2_HDR,body:JSON.stringify({
+      p_risorsa_id:a.risorsa_id,
+      p_da_tipo:'cantiere', p_da_id:a.cantiere_id, p_da_nome:a.cantiere_nome||null,
+      p_a_tipo:'cantiere',  p_a_id:dest.id,        p_a_nome:dest.nome||null,
+      p_qty:qty, p_data:data, p_origine:'planning'
+    })});
+    if(!r.ok) throw new Error(await _msgErroreHttp(r, true));
     closeModal('modal-r2-mov'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab); r2AggiornaBadgeRientri();
     toast(`✓ ${qty} trasferite a ${dest.nome}`);
-  }catch(e){ toast('⚠ Errore trasferimento'); }
+  }catch(e){
+    toast('⚠ Trasferimento non eseguito: '+_r2Err(e));
+    R2.loaded=false; try{ await r2Carica(); r2Tab(_r2Tab); }catch(_){}   // riallineo comunque con il DB
+  }
 }
 async function r2EseguiRientro(){
   const a=_r2MovAlloc; if(!a) return;
@@ -2418,7 +2347,7 @@ async function r2EseguiRientro(){
     await _r2EseguiOps(movRientro(a.id, data));
     closeModal('modal-r2-mov'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab); r2AggiornaBadgeRientri();
     toast('✓ Rientro registrato');
-  }catch(e){ toast('⚠ Errore rientro'); }
+  }catch(e){ toast('⚠ Errore rientro: '+_r2Err(e)); }
 }
 
 async function r2EliminaAlloc(){
@@ -2426,10 +2355,10 @@ async function r2EliminaAlloc(){
   if(!_r2EditAlloc) return;
   if(!confirm('Eliminare questa allocazione? La risorsa torna disponibile.')) return;
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${_r2EditAlloc}`,{method:'DELETE',headers:R2_HDR});
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${_r2EditAlloc}`,{method:'DELETE',headers:R2_HDR});
     closeModal('modal-r2-alloc'); R2.loaded=false; await r2Carica(); r2Tab(_r2Tab);
     toast('✓ Allocazione eliminata');
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 
 // ── PONTE scheda cantiere ↔ allocazioni ──
@@ -2488,9 +2417,9 @@ function mcNuovaAlloc(){
 function mcModAlloc(id){ r2ApriAlloc(id); _r2AfterSave=()=>mcRenderAlloc(_cantEditId); }
 async function mcDelAlloc(id){
   if(!confirm('Rimuovere questa allocazione? La risorsa torna disponibile.')) return;
-  try{ await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'DELETE',headers:R2_HDR});
+  try{ await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'DELETE',headers:R2_HDR});
     R2.loaded=false; await r2Carica(); mcRenderAlloc(_cantEditId); toast('✓ Rimossa');
-  }catch(e){ toast('⚠ Errore'); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 
 function renderMagazzino(){
@@ -3421,7 +3350,7 @@ async function _caConferma(){
     } else ops.push({a,az});
   }
   const now=new Date().toISOString();
-  let nR=0,nS=0,nA=0,nD=0;
+  let nR=0,nS=0,nA=0,nD=0, erroreOp=null;
   try{
     for(const o of ops){
       const a=o.a;
@@ -3454,12 +3383,13 @@ async function _caConferma(){
         nS++;
       } else nD++;
     }
-  }catch(e){ toast('⚠ Operazione interrotta: '+String(e.message||e).slice(0,60)); }
+  }catch(e){ erroreOp=String(e.message||e).slice(0,90); }
   _caChiudiModal();
   R2.loaded=false;
   if(typeof mcRenderAlloc==='function' && _cantEditId) mcRenderAlloc(_cantEditId);
   if(document.querySelector('.pg.active')?.id==='pg-risorse2') r2Render?.();
-  toast(`✓ ${nR} rientrate · ${nS} spostate${nA?' · '+nA+' annullate':''}${nD?' · '+nD+' in sospeso':''}`);
+  if(erroreOp) toast(`⚠ Operazione interrotta: ${erroreOp} (fatte: ${nR} rientrate · ${nS} spostate${nA?' · '+nA+' annullate':''})`);
+  else toast(`✓ ${nR} rientrate · ${nS} spostate${nA?' · '+nA+' annullate':''}${nD?' · '+nD+' in sospeso':''}`);
   await controllaAttrezzatureCantieriChiusi(false);
   if(_CA_PENDENTI.length && document.querySelector('.pg.active')?.id!=='pg-dash') { /* il banner resta in Dashboard */ }
 }
@@ -4053,7 +3983,7 @@ function renderPersonale(){
         <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px">⚠️ ${critici.length} scadenza/e in arrivo</div>
         ${critici.slice(0,5).map(c=>`
           <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(232,75,75,.15)">
-            <span><b>${c.nome}</b> — ${c.tipo}</span>
+            <span><b>${esc2(c.nome)}</b> — ${c.tipo}</span>
             <span class="bx ${scadenzaClass(c.giorni)}">${scadenzaLabel(c.giorni)}</span>
           </div>`).join('')}
         ${critici.length>5?`<div style="font-size:11px;color:var(--text2);margin-top:4px">+${critici.length-5} altre scadenze...</div>`:''}
@@ -4586,9 +4516,9 @@ function initCalendario(){
   const ora = new Date();
   const fine = new Date(ora); fine.setMonth(fine.getMonth()+3);
   if(!document.getElementById('cal-from').value)
-    document.getElementById('cal-from').value = ora.toISOString().slice(0,10);
+    document.getElementById('cal-from').value = isoLocale(ora);
   if(!document.getElementById('cal-to').value)
-    document.getElementById('cal-to').value = fine.toISOString().slice(0,10);
+    document.getElementById('cal-to').value = isoLocale(fine);
   aggiornaBarraVisuale();
   renderVista();
 }
@@ -4600,14 +4530,14 @@ function setPreset(p){
   else if(p==='3m') al.setMonth(al.getMonth()+3);
   else if(p==='6m') al.setMonth(al.getMonth()+6);
   else if(p==='1y') al.setFullYear(al.getFullYear()+1);
-  document.getElementById('cal-from').value = da.toISOString().slice(0,10);
-  document.getElementById('cal-to').value = al.toISOString().slice(0,10);
+  document.getElementById('cal-from').value = isoLocale(da);   // data locale: toISOString su mezzanotte dava il giorno prima
+  document.getElementById('cal-to').value = isoLocale(al);
   syncPeriodo('from');
   // propaga alle date export nella pagina Cantieri
   const ef = document.getElementById('exp-from');
   const et = document.getElementById('exp-to');
-  if(ef) ef.value = da.toISOString().slice(0,10);
-  if(et) et.value = al.toISOString().slice(0,10);
+  if(ef) ef.value = isoLocale(da);
+  if(et) et.value = isoLocale(al);
 }
 
 function syncPeriodo(changed){
@@ -4713,16 +4643,16 @@ function r2ApriRientri(){
 async function r2RientroSi(id){
   // risorsa rientrata oggi: chiude l'allocazione a oggi
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'PATCH',headers:R2_HDR,
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'PATCH',headers:R2_HDR,
       body:JSON.stringify({data_rientro:r2today(),data_rientro_effettiva:r2today(),stato:'rientrata',aggiornato_il:new Date().toISOString()})});
     R2.loaded=false; await r2Carica(); r2AggiornaBadgeRientri(); r2ApriRientri();
     toast('✓ Risorsa rientrata a deposito');
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 
 function r2RientroNo(id){
   const box=document.getElementById('r2-rientro-nuova-'+id);
-  if(box){ box.style.display='flex'; const inp=document.getElementById('r2-rientro-data-'+id); if(inp&&!inp.value){ const d=new Date(); d.setDate(d.getDate()+7); inp.value=d.toISOString().slice(0,10);} }
+  if(box){ box.style.display='flex'; const inp=document.getElementById('r2-rientro-data-'+id); if(inp&&!inp.value){ const d=new Date(); d.setDate(d.getDate()+7); inp.value=isoLocale(d);} }
 }
 
 async function r2RientroConferma(id){
@@ -4730,8 +4660,10 @@ async function r2RientroConferma(id){
   if(!nuova){ toast('Indica la nuova data prevista'); return; }
   const a=R2.allocazioni.find(x=>String(x.id)===String(id));
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'PATCH',headers:R2_HDR,
-      body:JSON.stringify({data_rientro:nuova,stato:'programmata',aggiornato_il:new Date().toISOString()})});
+    // rinvio del rientro: se il materiale è già fuori (in_corso) resta in_corso, non torna "da preparare"
+    const statoNuovo = (a && a.stato==='in_corso') ? 'in_corso' : 'programmata';
+    await _r2Scrivi(`${SUPABASE_URL}/rest/v1/allocazioni?id=eq.${id}`,{method:'PATCH',headers:R2_HDR,
+      body:JSON.stringify({data_rientro:nuova,stato:statoNuovo,aggiornato_il:new Date().toISOString()})});
     // caso per caso: chiedo se spostare anche la scadenza del cantiere
     if(a && a.cantiere_id){
       const cant=(DB.cantieri||[]).find(c=>c.id===a.cantiere_id);
@@ -4745,7 +4677,7 @@ async function r2RientroConferma(id){
       } else { toast('✓ Rientro aggiornato'); }
     } else { toast('✓ Rientro aggiornato'); }
     R2.loaded=false; await r2Carica(); r2AggiornaBadgeRientri(); r2ApriRientri();
-  }catch(e){ toast('⚠ Errore: '+String(e).slice(0,60)); }
+  }catch(e){ toast('⚠ Errore: '+_r2Err(e)); }
 }
 
 // Tipo di pianificazione: evento (barra piena) o continuativo (sfondo sottile).
@@ -4821,9 +4753,10 @@ function _interfLivello(inf){
 }
 function renderInterferenzeFascia(da, al, cantieri, startTs, totMs){
   window._interfGiorni={};
-  let celle=''; const cur=new Date(da); const endTs=new Date(al).getTime();
-  while(cur.getTime()<=endTs){
-    const g=cur.toISOString().slice(0,10);
+  // giorni costruiti a mezzogiorno locale + isoLocale: niente salti/doppioni al cambio dell'ora legale
+  let celle=''; const cur=new Date(da+'T12:00:00');
+  while(isoLocale(cur)<=al){
+    const g=isoLocale(cur);
     const inf=interferenzeGiorno(g, cantieri);
     const lv=_interfLivello(inf);
     window._interfGiorni[g]=inf;
@@ -4873,8 +4806,8 @@ let _ganttVista = 'settimana';   // 'mese' | 'settimana'  — default: settimana
 let _ganttSettLun = null;        // DOMENICA della settimana mostrata (ISO) — settimana Dom→Sab
 let _ganttInPiediAperto = false;
 
-function _isoAdd(iso, n){ const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
-function _lunediDi(iso){ /* ritorna la DOMENICA della settimana (Dom→Sab) */ const d = new Date(iso + 'T12:00'); const w = d.getDay(); d.setDate(d.getDate() - w); return d.toISOString().slice(0, 10); }
+function _isoAdd(iso, n){ const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return isoLocale(d); }
+function _lunediDi(iso){ /* ritorna la DOMENICA della settimana (Dom→Sab) */ const d = new Date(iso + 'T12:00'); const w = d.getDay(); d.setDate(d.getDate() - w); return isoLocale(d); }
 
 function _ganttBarraVista(){
   const b = (v, lbl) => `<button onclick="ganttVista('${v}')" class="${_ganttVista === v ? 'bp' : 'bs'}" style="font-size:11px;padding:5px 12px">${lbl}</button>`;
@@ -5145,8 +5078,8 @@ function renderGantt(){
 
   // Intestazione a 2 livelli: mese (teal) + settimane o giorni
   const buildMesiHeader = () => {
-    const mesiMap = {}; const cur = new Date(da);
-    while(cur.getTime()<=endTs){
+    const mesiMap = {}; const cur = new Date(da+'T12:00:00');   // mezzogiorno locale: robusto al cambio dell'ora legale
+    while(isoLocale(cur)<=al){
       const key = cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0');
       if(!mesiMap[key]) mesiMap[key]={label:cur.toLocaleDateString('it-IT',{month:'short',year:'2-digit'}),giorni:0};
       mesiMap[key].giorni++; cur.setDate(cur.getDate()+1);
@@ -5156,17 +5089,17 @@ function renderGantt(){
 
   let subHeader = '';
   if(mostraSettimane){
-    const cur2 = new Date(da);
-    while(cur2.getTime()<=endTs){
+    const cur2 = new Date(da+'T12:00:00');
+    while(isoLocale(cur2)<=al){
       const gg = Math.min(7,Math.round((Math.min(new Date(cur2).setDate(cur2.getDate()+6),endTs)-cur2.getTime())/(1000*60*60*24))+1);
       subHeader+=`<div style="flex:${gg};text-align:center;font-size:11px;color:var(--text2);border-right:1px solid var(--brd);padding:2px 0;white-space:nowrap;overflow:hidden">${['Do','Lu','Ma','Me','Gi','Ve','Sa'][cur2.getDay()]} ${cur2.getDate()}/${cur2.getMonth()+1}</div>`;
       cur2.setDate(cur2.getDate()+7);
     }
   } else {
     const SETT=['Do','Lu','Ma','Me','Gi','Ve','Sa'];
-    const cur2 = new Date(da);
-    while(cur2.getTime()<=endTs){
-      const ds2=cur2.toISOString().slice(0,10); const isOggi2=ds2===today(); const isLun=cur2.getDay()===1;
+    const cur2 = new Date(da+'T12:00:00');
+    while(isoLocale(cur2)<=al){
+      const ds2=isoLocale(cur2); const isOggi2=ds2===today(); const isLun=cur2.getDay()===1;
       const wk=cur2.getDay()===0||cur2.getDay()===6;   // weekend: i giorni degli eventi
       subHeader+=`<div style="flex:1;text-align:center;font-size:10px;line-height:1.25;color:${isOggi2?'var(--teal)':wk?'var(--gold)':'var(--text2)'};border-right:1px solid var(--brd);padding:2px 0;font-weight:${isOggi2||isLun||wk?'700':'400'};background:${isOggi2?'rgba(0,180,166,.15)':wk?'rgba(201,162,39,.07)':''}">${SETT[cur2.getDay()]}<br><span style="font-size:11px">${cur2.getDate()}</span></div>`;
       cur2.setDate(cur2.getDate()+1);
@@ -5213,14 +5146,14 @@ function renderGantt(){
       <div onclick="toggleGanttRow('${c.id}')" style="width:180px;min-width:180px;padding:${cont?'3px 10px':'6px 10px'};cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--card);${cont?'opacity:.55':''}">
         <span style="font-size:11px;color:var(--text2)">${interv.length?'▶':' '}</span>
         <div>
-          <div style="font-size:11px;font-weight:${cont?'400':'700'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${cont?'🔁 ':''}${c.nome}</div>
+          <div style="font-size:11px;font-weight:${cont?'400':'700'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${cont?'🔁 ':''}${esc2(c.nome)}</div>
           ${cont?'':`<div style="font-size:11px;color:var(--text2)">${c.committente||''}</div>`}
         </div>
       </div>
       <div style="flex:1;position:relative;background:var(--navy);min-height:${cont?26:36}px">
         ${oggiLeft?`<div style="position:absolute;left:${oggiLeft}%;top:0;width:1px;height:100%;background:rgba(0,180,166,.4);z-index:1"></div>`:''}
         ${(()=>{
-          const titolo=`${c.nome} · ${fdate(c.periodoInizio)}→${fdate(c.periodoFine||c.periodoInizio)}`;
+          const titolo=`${esc2(c.nome)} · ${fdate(c.periodoInizio)}→${fdate(c.periodoFine||c.periodoInizio)}`;
           // CAMPATA: continuativo con interventi → blocchetti nei giorni di lavoro + filo tratteggiato
           if(isCampata(c)){
             const gg=[...new Set(interventi.map(iv=>iv.data))].sort();
@@ -5228,7 +5161,7 @@ function renderGantt(){
             const seg=[]; let s0=gg[0], prev=gg[0];
             for(let i=1;i<=gg.length;i++){
               const g=gg[i];
-              const attesa=prev?new Date(new Date(prev+'T12:00').getTime()+86400000).toISOString().slice(0,10):null;
+              const attesa=prev?_isoAdd(prev, 1):null;
               if(g!==attesa){ seg.push([s0,prev]); s0=g; }
               prev=g;
             }
@@ -5257,7 +5190,7 @@ function renderGantt(){
           <div style="width:180px;min-width:180px;padding:4px 10px 4px 28px;font-size:11px;color:var(--text2)">↳ ${fdate(iv.data)}</div>
           <div style="flex:1;position:relative;height:30px">
             <div title="${t.lbl}" style="position:absolute;left:${ivLeft}%;top:8px;width:14px;height:14px;background:${t.col};border-radius:50%;border:2px solid var(--navy);z-index:2;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff">${t.ic}</div>
-            <div style="position:absolute;left:calc(${ivLeft}% + 20px);top:8px;font-size:11px;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis"><b style="color:${t.col}">${t.lbl}</b> <span style="color:var(--text2)">${oreTxt?oreTxt+' · ':''}${iv.descrizione||''}${squadraArray(iv).length?' · '+squadraArray(iv).join(', '):''}</span></div>
+            <div style="position:absolute;left:calc(${ivLeft}% + 20px);top:8px;font-size:11px;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis"><b style="color:${t.col}">${t.lbl}</b> <span style="color:var(--text2)">${oreTxt?oreTxt+' · ':''}${esc2(iv.descrizione||'')}${squadraArray(iv).length?' · '+esc2(squadraArray(iv).join(', ')):''}</span></div>
           </div>
         </div>`;
       }).join('') : `<div style="padding:6px 10px 6px 28px;font-size:11px;color:var(--text2)">Nessun intervento nel periodo</div>`}
@@ -5332,7 +5265,7 @@ function renderMensile(){
 
       celle+=`<div style="min-height:52px;padding:3px;border:1px solid var(--brd);border-radius:4px;background:${isOggi?'var(--td)':'var(--card)'}">
         <div style="font-size:11px;font-weight:${isOggi?'700':'400'};color:${isOggi?'var(--teal)':'var(--text2)'};margin-bottom:2px">${g}</div>
-        ${cantInGiorno.map((c,idx)=>`<div onclick="apriModificaCantiere('${c.id}')" title="${c.nome}" style="background:${coloreCantiere(cantieri.indexOf(c))};border-radius:2px;padding:1px 4px;font-size:11px;color:rgba(0,0,0,.8);font-weight:700;margin-bottom:1px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.nome}</div>`).join('')}
+        ${cantInGiorno.map((c,idx)=>`<div onclick="apriModificaCantiere('${c.id}')" title="${esc2(c.nome)}" style="background:${coloreCantiere(cantieri.indexOf(c))};border-radius:2px;padding:1px 4px;font-size:11px;color:rgba(0,0,0,.8);font-weight:700;margin-bottom:1px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc2(c.nome)}</div>`).join('')}
         ${intervInGiorno.map(iv=>`<div title="${iv.cantNome}: ${iv.descrizione||''}" style="background:rgba(255,255,255,.15);border-radius:2px;padding:1px 4px;font-size:11px;color:var(--text);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🔨 ${iv.descrizione||iv.cantNome}</div>`).join('')}
       </div>`;
     }
@@ -5438,7 +5371,7 @@ function renderCantieri(){
     <div class="tc" style="margin-bottom:12px;${c.archiviato?'opacity:.7':''}">
       <div class="th">
         <div style="cursor:pointer;flex:1" onclick="apriModificaCantiere('${c.id}')">
-          <div class="card-title">${c.nome}${c.archiviato?` <span style="font-size:11px;color:var(--text2);font-weight:400">🗄 Archiviato</span>`:''}
+          <div class="card-title">${esc2(c.nome)}${c.archiviato?` <span style="font-size:11px;color:var(--text2);font-weight:400">🗄 Archiviato</span>`:''}
           </div>
           <div style="font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-top:2px">
             ${c.committente||'—'}${(()=>{const r=_cantReferente(c);return r?' · 👤 '+(r.nome||'').replace(/</g,'&lt;'):'';})()} · ${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}
@@ -5468,7 +5401,7 @@ function renderCantieri(){
   if(ef && !ef.value){ ef.value = today(); }
   if(et && !et.value){
     const d = new Date(); d.setMonth(d.getMonth()+3);
-    et.value = d.toISOString().slice(0,10);
+    et.value = isoLocale(d);
   }
   // stessi default anche per l'export economico
   const efEco = document.getElementById('exp-eco-from');
@@ -5958,7 +5891,7 @@ function confermaDuplicaIntervPeriodo(){
   const fine = new Date(al+'T12:00:00');
   let count = 0, guard = 0;
   while(cur <= fine && guard < 60){
-    const d = cur.toISOString().slice(0,10);
+    const d = isoLocale(cur);
     _tmpInterv.push({
       id: uid(), data: d,
       oraInizio: iv.oraInizio||'08:00', oraFine: iv.oraFine||'18:00',
@@ -5987,7 +5920,7 @@ function calcolaOre(oraI, oraF){
 
 // Aggiunge un giorno a una stringa "YYYY-MM-DD"
 function giornoDopo(dataStr){
-  const d=new Date(dataStr+'T12:00:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10);
+  const d=new Date(dataStr+'T12:00:00'); d.setDate(d.getDate()+1); return isoLocale(d);
 }
 
 function aggiungiInterv(){
@@ -6250,11 +6183,11 @@ function impostaPeriodoExport(prefix, tipo){
     const giorno = oggi.getDay() || 7; // lun=1 ... dom=7
     const lunedi = new Date(oggi); lunedi.setDate(oggi.getDate() - giorno + 1);
     const domenica = new Date(lunedi); domenica.setDate(lunedi.getDate() + 6);
-    da = lunedi.toISOString().slice(0,10);
-    al = domenica.toISOString().slice(0,10);
+    da = isoLocale(lunedi);
+    al = isoLocale(domenica);
   } else if(tipo === 'mese'){
-    da = new Date(oggi.getFullYear(), oggi.getMonth(), 1).toISOString().slice(0,10);
-    al = new Date(oggi.getFullYear(), oggi.getMonth()+1, 0).toISOString().slice(0,10);
+    da = isoLocale(new Date(oggi.getFullYear(), oggi.getMonth(), 1));      // mezzanotte locale: toISOString dava il giorno prima
+    al = isoLocale(new Date(oggi.getFullYear(), oggi.getMonth()+1, 0));
   } else return;
   const ef = document.getElementById(prefix+'-from');
   const et = document.getElementById(prefix+'-to');
@@ -6482,7 +6415,7 @@ function esportaPDF(landscapeOverride, economico){
       <!-- HEADER CANTIERE -->
       <div style="background:${colore};padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px">${c.nome}</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px">${esc2(c.nome)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.9);margin-top:4px">
             ${c.committente ? `<b>${c.committente}</b>` : ''}${c.luogo ? ` &nbsp;·&nbsp; 📍 ${c.luogo}` : ''}
           </div>
@@ -6704,7 +6637,7 @@ function renderOggi(){
 
   // interventi domani
   const domani = new Date(now); domani.setDate(domani.getDate()+1);
-  const domaniStr = domani.toISOString().slice(0,10);
+  const domaniStr = isoLocale(domani);
   const domaniInterventi = [];
   cantieri.forEach(c=>{
     (c.interventi||[]).filter(iv=>iv.data===domaniStr).forEach(iv=>{
@@ -6733,14 +6666,14 @@ function renderOggi(){
       <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px">📦 Ritiro attrezzature imminente</div>
       ${lpRitiroImminente.map(c=>{
         const gg=Math.ceil((new Date(c.dataRitiro+'T12:00:00')-new Date())/86400000);
-        return `<div style="font-size:12px;display:flex;justify-content:space-between;padding:3px 0"><span><b>${c.nome}</b></span><span class="bx ${gg===0?'br':'bo'}">${gg===0?'OGGI':gg===1?'domani':'tra '+gg+'gg'} — ${fdate(c.dataRitiro)}</span></div>`;
+        return `<div style="font-size:12px;display:flex;justify-content:space-between;padding:3px 0"><span><b>${esc2(c.nome)}</b></span><span class="bx ${gg===0?'br':'bo'}">${gg===0?'OGGI':gg===1?'domani':'tra '+gg+'gg'} — ${fdate(c.dataRitiro)}</span></div>`;
       }).join('')}
     </div>`;
   }
   if(lpConInterventoOggi.length){
     html += `<div style="background:rgba(100,120,200,.08);border:1px solid rgba(100,120,200,.25);border-radius:var(--r);padding:10px 14px;margin-bottom:14px">
       <div style="font-size:11px;font-weight:700;color:#7aa0ff;margin-bottom:4px">📦 Depositi con attività oggi</div>
-      ${lpConInterventoOggi.map(c=>`<div style="font-size:12px;padding:2px 0"><b>${c.nome}</b> — ${(c.interventi||[]).filter(iv=>iv.data===oggiStr).map(iv=>iv.descrizione||'Intervento').join(', ')}</div>`).join('')}
+      ${lpConInterventoOggi.map(c=>`<div style="font-size:12px;padding:2px 0"><b>${esc2(c.nome)}</b> — ${(c.interventi||[]).filter(iv=>iv.data===oggiStr).map(iv=>esc2(iv.descrizione||'Intervento')).join(', ')}</div>`).join('')}
     </div>`;
   }
 
@@ -6751,7 +6684,7 @@ function renderOggi(){
       ${inScadenza.map(c=>{
         const g=giorniAllaScadenza(c.periodoFine||c.periodoInizio);
         return `<div style="font-size:12px;display:flex;justify-content:space-between;padding:3px 0">
-          <span><b>${c.nome}</b></span>
+          <span><b>${esc2(c.nome)}</b></span>
           <span class="bx ${g===0?'br':'bo'}">${g===0?'OGGI':g===1?'domani':'tra '+g+'gg'}</span>
         </div>`;
       }).join('')}
@@ -6780,7 +6713,7 @@ function renderOggi(){
       return `
       <div class="oggi-card" onclick="apriModificaCantiere('${c.id}')" style="border-left:4px solid ${colore}">
         <div class="oc-label">Cantiere</div>
-        <div class="oc-title">${c.nome}</div>
+        <div class="oc-title">${esc2(c.nome)}</div>
         <div class="oc-meta">${c.committente||''}${c.luogo?' · 📍 '+c.luogo:''}</div>
         <div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap">
           <span class="bx ${b.cls}">${b.txt}</span>
@@ -6815,7 +6748,7 @@ function renderMonitorPagina(){
   const mf = document.getElementById('mon-from');
   const mt = document.getElementById('mon-to');
   if(mf && !mf.value) mf.value = today();
-  if(mt && !mt.value){ const d=new Date(); d.setMonth(d.getMonth()+1); mt.value=d.toISOString().slice(0,10); }
+  if(mt && !mt.value){ const d=new Date(); d.setMonth(d.getMonth()+1); mt.value=isoLocale(d); }
   renderMonitor();
 }
 
@@ -6958,7 +6891,7 @@ function renderMonitor(){
                   <span class="bx ${cls}" style="font-size:11px">${disp<0?'ESAURITO':pct+'%'}</span>
                 </div>
               </td>
-              <td style="font-size:11px">${list.length?list.map(c=>`<span style="display:inline-block;background:var(--td2);border-radius:4px;padding:1px 5px;margin:1px" title="${c.personalizzata?fdate(c.aIn)+' → '+fdate(c.aFi):''}">${c.nome} (${c.qty})${c.personalizzata?' 📅':''}</span>`).join(''):'<span style="color:var(--text2)">—</span>'}</td>
+              <td style="font-size:11px">${list.length?list.map(c=>`<span style="display:inline-block;background:var(--td2);border-radius:4px;padding:1px 5px;margin:1px" title="${c.personalizzata?fdate(c.aIn)+' → '+fdate(c.aFi):''}">${esc2(c.nome)} (${c.qty})${c.personalizzata?' 📅':''}</span>`).join(''):'<span style="color:var(--text2)">—</span>'}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -6972,7 +6905,7 @@ function renderMonitor(){
       <h3>Dettaglio cantieri con attrezzature</h3>
       ${cantieri.filter(c=>(c.attrezzature||[]).length).map(c=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd);font-size:12px;flex-wrap:wrap;gap:6px">
-          <div><b>${c.nome}</b> <span style="font-size:11px;color:var(--text2)">${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}</span></div>
+          <div><b>${esc2(c.nome)}</b> <span style="font-size:11px;color:var(--text2)">${fdate(c.periodoInizio)} → ${fdate(c.periodoFine||c.periodoInizio)}</span></div>
           <div style="display:flex;gap:5px;flex-wrap:wrap">
             ${(c.attrezzature||[]).map(a=>`<span style="background:var(--td2);border-radius:4px;padding:2px 7px;font-size:11px">${a.tipo} × ${a.quantita||'?'}</span>`).join('')}
           </div>
@@ -7090,8 +7023,8 @@ function gcalRefreshUI(){
     if(f && !f.value){
       const now = new Date();
       const plus60 = new Date(now.getTime() + 60*24*3600*1000);
-      f.value = now.toISOString().slice(0,10);
-      t.value = plus60.toISOString().slice(0,10);
+      f.value = isoLocale(now);
+      t.value = isoLocale(plus60);
     }
   } else {
     dot.classList.remove('ok');
@@ -7169,8 +7102,8 @@ function renderGcalEventi(){
     return `
     <div class="ev-card ${importato?'imported':''}">
       <div class="ev-info">
-        <div class="ev-title">${ev.summary || '(senza titolo)'}</div>
-        <div class="ev-meta">${fdate(inizio)} → ${fdate(fine)}${ev.location?' · '+ev.location:''}</div>
+        <div class="ev-title">${esc2(ev.summary || '(senza titolo)')}</div>
+        <div class="ev-meta">${fdate(inizio)} → ${fdate(fine)}${ev.location?' · '+esc2(ev.location):''}</div>
       </div>
       <div class="ev-actions">
         ${importato
@@ -7276,7 +7209,7 @@ setInterval(clock, 30000);
 // Rete di sicurezza: se chiudi la pagina con modifiche non ancora sincronizzate,
 // tenta un salvataggio cloud immediato e avvisa
 window.addEventListener('beforeunload', (e)=>{
-  if(_modifichePendenti){
+  if(_modifichePendenti || _salvataggioFallito){
     clearTimeout(cloudAutoSaveTimer);
     try{ cloudSalvaOra(true); }catch(_){}
     e.preventDefault(); e.returnValue='';
@@ -7292,7 +7225,7 @@ setTimeout(()=>{
   popolaSelectPersonale();
   aggiornaInboxBadge();
   const epCant=document.getElementById('ep-cantiere');
-  if(epCant) epCant.innerHTML=(DB.cantieri||[]).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  if(epCant) epCant.innerHTML=(DB.cantieri||[]).map(c=>`<option value="${esc2(c.id)}">${esc2(c.nome)}</option>`).join('');
   // Carica automaticamente dal cloud all'avvio — così Mac e mobile sono sempre allineati
   cloudCaricaOra(true).finally(()=>{ setTimeout(_applicaProposteBot, 800); });
 }, 600);
@@ -7499,15 +7432,20 @@ async function segConfermaAccetta(id){
       attrezzature:[], serviziEsterni:[], personaleAssegnato:[]
     });
     save();
-    await cloudSalvaOra(true);
+    // la notizia si marca 'accettata' SOLO se il cantiere è davvero sul cloud
+    if(!(await cloudSalvaOra(true))){
+      toast('⚠ Cantiere NON salvato sul cloud: la notizia resta in sospeso. Usa "Riprova" in alto.');
+      return;
+    }
 
     let numPrev = null;
     if(vuolePrev) numPrev = await segCreaPreventivo(cid, nome, cliente, lav);
 
-    await fetch(`${SUPABASE_URL}/rest/v1/segnalazioni?id=eq.${id}`, {
+    const rS = await fetch(`${SUPABASE_URL}/rest/v1/segnalazioni?id=eq.${id}`, {
       method:'PATCH', headers:R2_HDR,
       body: JSON.stringify({ stato:'accettata', cantiere_id:cid, preventivo_numero:numPrev, deciso_il:new Date().toISOString() })
     });
+    if(!rS.ok) throw new Error('cantiere creato ma notizia non aggiornata: '+(await _msgErroreHttp(rS)));
 
     await segCarica();
     segRenderLista();
@@ -7520,35 +7458,30 @@ async function segConfermaAccetta(id){
 
 async function segCreaPreventivo(cantiereId, nome, cliente, lav){
   try{
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/preventivi?select=numero&order=numero.desc&limit=1`, { headers:R2_HDR });
-    const rows = await r.json();
-    const anno = new Date().getFullYear();
-    let n = 1;
-    if(rows && rows[0] && rows[0].numero){
-      const m = String(rows[0].numero).match(/PREV-(\d{4})-(\d+)/);
-      if(m && parseInt(m[1])===anno) n = parseInt(m[2]) + 1;
-    }
-    const numero = `PREV-${anno}-${String(n).padStart(3,'0')}`;
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/preventivi`, {
-      method:'POST', headers:{...R2_HDR,'Prefer':'return=minimal'},
+    // il numero (PREV-AAAA-NNN) lo assegna il trigger del DB quando arriva vuoto: niente doppioni tra app
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/preventivi?select=numero`, {
+      method:'POST', headers:{...R2_HDR,'Prefer':'return=representation'},
       body: JSON.stringify({
-        numero: numero, data: today(), cliente_nome: cliente||'', oggetto: lav||nome,
+        data: today(), cliente_nome: cliente||'', oggetto: lav||nome,
         righe: [], imponibile: 0, iva_tipo:'normale', iva_perc: 22, iva_importo: 0, totale: 0,
         validita: '30 giorni', stato: 'bozza', cantiere_ref: cantiereId, cantiere_id: cantiereId
       })
     });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    return numero;
-  }catch(e){ toast('⚠ Cantiere creato, preventivo no: '+String(e).slice(0,40)); return null; }
+    if(!res.ok) throw new Error(await _msgErroreHttp(res));
+    const out = await res.json().catch(()=>null);
+    const numero = Array.isArray(out) ? (out[0] && out[0].numero) : (out && out.numero);
+    return numero || null;
+  }catch(e){ toast('⚠ Cantiere creato, preventivo no: '+String(e).slice(0,60)); return null; }
 }
 
 async function segArchivia(id){
   if(!confirm('Elimino questa notizia? Resta archiviata e recuperabile, ma sparisce dalla spia.')) return;
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/segnalazioni?id=eq.${id}`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/segnalazioni?id=eq.${id}`, {
       method:'PATCH', headers:R2_HDR,
       body: JSON.stringify({ stato:'archiviata', deciso_il:new Date().toISOString() })
     });
+    if(!r.ok) throw new Error(await _msgErroreHttp(r));
     await segCarica();
     segRenderLista();
     toast('🗄 Notizia archiviata');
@@ -7646,7 +7579,8 @@ async function dcElimina(id){
         _tombAdd('cantiere', v.cantiere_id);
       }
       save();
-      await cloudSalvaOra(true);
+      // la voce si marca 'eliminata' SOLO se l'eliminazione è davvero sul cloud
+      if(!(await cloudSalvaOra(true))){ toast('⚠ Eliminazione NON salvata sul cloud: la voce resta in sospeso'); return; }
     }
     await _dcPatch(_dcFiltro(v), 'eliminata');
     await dcCarica();
