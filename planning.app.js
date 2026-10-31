@@ -278,7 +278,9 @@ function renderDash(){
     .sort((a,b)=>(a.periodoInizio||"").localeCompare(b.periodoInizio||""));
   const _prossimiC = _attivi.filter(c => c.periodoInizio>oggi)
     .sort((a,b)=>(a.periodoInizio||"").localeCompare(b.periodoInizio||"")).slice(0,12);
-  const _assegnato = c => !!((c.personaleAssegnato&&c.personaleAssegnato.length) || (c.mezzi&&c.mezzi.length) || (c.interventi||[]).some(iv=>squadraArray(iv).length>0));
+  const _isFornitura = c => { const t=c&&c.tipoCant; return Array.isArray(t)?t.indexOf('fornitura')>=0:(t==='fornitura'); };
+  // I cantieri "fornitura" non richiedono squadra (consegna sola): mai segnalati "da assegnare".
+  const _assegnato = c => _isFornitura(c) || !!((c.personaleAssegnato&&c.personaleAssegnato.length) || (c.mezzi&&c.mezzi.length) || (c.interventi||[]).some(iv=>squadraArray(iv).length>0));
   const _dashCard = c => {
     const _tipiHtml = planBadgeTipi(c);
     const b = statoBadge(c);
@@ -296,7 +298,7 @@ function renderDash(){
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${quando?`<span class="bx bz">🗓 ${quando}</span>`:''}
         ${nI?`<span class="bx bz">🔨 ${nI}</span>`:''}
-        ${ass?`<span class="bx bt">👷 assegnato</span>`:`<span class="bx br">⚠ da assegnare</span>`}
+        ${_isFornitura(c)?'' : (ass?`<span class="bx bt">👷 assegnato</span>`:`<span class="bx br">⚠ da assegnare</span>`)}
       </div>
     </div>`;
   };
