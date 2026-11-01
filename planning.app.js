@@ -419,6 +419,28 @@ function _mergeClientiPlan(remote, local){
   return remote.concat(extra);
 }
 
+// ── Lettura/scrittura LEGGERA del blob (01/11/2026) ─────────────────────────────
+// Il Planning legge solo le parti che gli servono (non presenze/pagamenti/… del Gestionale)
+// e salva con la funzione del database aggiorna_parti_planning, che sostituisce SOLO le
+// parti del Planning e solo se nessun'altra app ha salvato nel frattempo (versione).
+const _PARTI_PLANNING = ['cantieri','_interventiEliminati','_cantieriEliminati','mezziDB','personaleHR','risorse','magazzino','clienti'];
+async function _leggiParti(parti, extra){
+  const sel = (extra?extra+',':'') + parti.map(k=>k+':dati->'+k).join(',');
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=${sel}`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }, cache: 'no-cache' });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const rows = await r.json();
+  return (rows && rows[0]) ? rows[0] : null;
+}
+async function _scriviParti(campi, versioneAttesa){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/aggiorna_parti_planning`, {
+    method:'POST', headers:{ 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
+    body: JSON.stringify({ campi, versione_attesa: (versioneAttesa==null?null:versioneAttesa) }) });
+  const j = await r.json().catch(()=>null);
+  if(!r.ok) throw new Error((j&&(j.message||j.hint))||('HTTP '+r.status));
+  return j || { ok:false };
+}
+
 // Salva con LOCK OTTIMISTICO (come Gestionale/Mobile): rilegge il remoto + versione,
 // fa un merge non distruttivo e scrive SOLO se la versione non è cambiata nel frattempo.
 // Così non sovrascrive mai le pianificazioni/dati salvati da un'altra app.
@@ -429,18 +451,16 @@ async function cloudSalvaOra(silenzioso=false){
   try{
     let salvato = false;
     for(let tentativo=1; tentativo<=5 && !salvato; tentativo++){
-      // 1) stato remoto fresco + versione
-      const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,versione`, { headers: H, cache: 'no-cache' });
-      if(!getRes.ok) throw new Error('HTTP '+getRes.status);
-      const rows = await getRes.json();
-      const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
-      const versione = (rows && rows[0] && rows[0].versione!=null) ? rows[0].versione : null;
+      // 1) stato remoto fresco (solo le parti del planning) + versione
+      const riga = await _leggiParti(['cantieri','clienti','_interventiEliminati','_cantieriEliminati'], 'versione');
+      const remoto = riga || {};
+      const versione = (riga && riga.versione!=null) ? riga.versione : null;
 
       // 2) merge non distruttivo: parto dal remoto (presenze, saldi, documenti, ecc. restano),
       //    sovrascrivo i campi del planning, ma cantieri per elemento e clienti preferendo il remoto
       const _tIv = _tombSet(remoto, '_interventiEliminati');
       const _tC  = _tombSet(remoto, '_cantieriEliminati');
-      const merged = Object.assign({}, remoto, {
+      const merged = Object.assign({}, {
         cantieri:    _mergeCantieriPlan(remoto.cantieri, DB.cantieri, _tC, _tIv),
         _interventiEliminati: [..._tIv].slice(-3000),
         _cantieriEliminati:   [..._tC].slice(-3000),
@@ -451,22 +471,15 @@ async function cloudSalvaOra(silenzioso=false){
         clienti:     _mergeClientiPlan(remoto.clienti, DB.clienti)
       });
 
-      // 3) PATCH condizionata sulla versione: scrive solo se nessuno ha toccato nel frattempo
-      const _tsInvio = new Date().toISOString();
-      const filtro = (versione!=null) ? `&versione=eq.${versione}` : '';
-      const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico${filtro}`, {
-        method: 'PATCH',
-        headers: Object.assign({}, H, { 'Content-Type':'application/json', 'Prefer':'return=representation' }),
-        body: JSON.stringify({ dati: merged, aggiornato_il: _tsInvio })
-      });
-      if(!patchRes.ok) throw new Error('HTTP '+patchRes.status);
-      const updated = await patchRes.json().catch(()=>[]);
+      // 3) scrittura condizionata sulla versione: solo le parti del planning, solo se nessuno ha salvato nel frattempo
+      Object.keys(merged).forEach(k=>{ if(merged[k]===undefined) delete merged[k]; });   // parte assente in locale: resta quella sul cloud
+      const esito = await _scriviParti(merged, versione);
 
-      if(Array.isArray(updated) && updated.length>0){
+      if(esito && esito.ok){
         salvato = true;
-        _cloudUltimoAggiornatoIl = _tsInvio;   // riferimento per l'auto-sync al rientro
+        _cloudUltimoAggiornatoIl = esito.aggiornato_il || new Date().toISOString();   // riferimento per l'auto-sync al rientro
         // riallinea i cantieri locali a quelli effettivamente salvati (vedo subito gli interventi uniti)
-        try{ if(updated[0] && updated[0].dati && Array.isArray(updated[0].dati.cantieri)) DB.cantieri = updated[0].dati.cantieri; }catch(_){}
+        if(Array.isArray(merged.cantieri)) DB.cantieri = merged.cantieri;
         if(!silenzioso && log) log.innerHTML = '<div style="color:var(--green)">✓ Salvato sul cloud (sincronizzato con gestionale e mobile)</div>';
         if(!silenzioso) toast('Sincronizzato ✓');
         const dot = document.getElementById('cloud-status-dot'); if(dot) dot.style.background = '#4be87a';
@@ -485,18 +498,14 @@ async function cloudCaricaOra(silenzioso=false){
   const log = document.getElementById('cloud-log');
   if(!silenzioso && log){ log.style.display='block'; log.innerHTML='<div style="color:var(--text2)">⏳ Caricamento...</div>'; }
   try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
-      cache: 'no-cache'  // forza sempre dati freschi da Supabase
-    });
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rows = await res.json();
-    if(!rows.length || !rows[0].dati){
+    // solo le parti del planning (+ personale per la vecchia migrazione): niente presenze/pagamenti del Gestionale
+    const riga = await _leggiParti(_PARTI_PLANNING.concat(['personale']), 'aggiornato_il');
+    if(!riga || !riga.cantieri){
       if(!silenzioso && log) log.innerHTML = '<div style="color:var(--text2)">ℹ Nessun dato sul cloud ancora.</div>';
       return;
     }
-    const remoto = rows[0].dati;
-    _cloudUltimoAggiornatoIl = rows[0].aggiornato_il || _cloudUltimoAggiornatoIl;   // riferimento per l'auto-sync al rientro
+    const remoto = riga;
+    _cloudUltimoAggiornatoIl = riga.aggiornato_il || _cloudUltimoAggiornatoIl;   // riferimento per l'auto-sync al rientro
     // eliminazioni condivise: unisci quelle remote alle locali e non mostrare ciò che è stato eliminato
     { const _tIv=_tombSet(remoto,'_interventiEliminati'), _tC=_tombSet(remoto,'_cantieriEliminati');
       DB._interventiEliminati=[..._tIv].slice(-3000); DB._cantieriEliminati=[..._tC].slice(-3000);
@@ -641,11 +650,7 @@ async function caricaPresenzeGestionale(){
   const log = document.getElementById('squadre-log');
   if(log){ log.style.display='block'; log.innerHTML = '<div style="color:var(--text2)">⏳ Lettura presenze dal Gestionale...</div>'; }
   try{
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati,aggiornato_il`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const rows = await res.json();
-    const remoto = (rows && rows[0] && rows[0].dati) ? rows[0].dati : {};
+    const remoto = (await _leggiParti(['presenze','personale'])) || {};
     DB._gestionaleCache = {
       presenze: remoto.presenze || {},
       personale: remoto.personale || [],
@@ -1507,16 +1512,13 @@ function rifiutaProposta(crId, propIdx){
 }
 
 // ── APPROVAZIONE PRINCIPALE ───────────────────────────────────────────────
-async function approvaCR(crId){
+async function approvaCR(crId, _riprova){
   const cr=(_stagingData?.changeRequests||[]).find(r=>r.id===crId);
   if(!cr){ toast('⚠ Proposta non trovata'); return; }
   try{
-    // Legge cantieri freschi dal cloud
-    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}, cache:'no-cache'
-    });
-    const getRows = getRes.ok ? await getRes.json() : [];
-    const remoto = (getRows&&getRows[0]?.dati) ? getRows[0].dati : {};
+    // Legge cantieri freschi dal cloud (solo i cantieri + versione)
+    const _riga = await _leggiParti(['cantieri'], 'versione');
+    const remoto = _riga || {}; const _versione = _riga ? _riga.versione : null;
     let cantieri = JSON.parse(JSON.stringify(remoto.cantieri||[])); // deep copy
 
     // ── Applica TURNI_BATCH ──────────────────────────────────────────────
@@ -1570,13 +1572,10 @@ async function approvaCR(crId){
       if(c){ if(!c.noteOperative)c.noteOperative=[]; c.noteOperative.push({...cr.payload,autore:cr.autore,data:cr.timestamp?.slice(0,10)}); }
     }
 
-    // Salva cantieri aggiornati su cloud
-    const merged={...remoto, cantieri};
-    await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`,{
-      method:'PATCH',
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({dati:merged,aggiornato_il:new Date().toISOString()})
-    });
+    // Salva SOLO i cantieri, e solo se nessun'altra app ha salvato nel frattempo
+    // (prima riscriveva tutto il blob senza controllo: poteva cancellare presenze appena salvate altrove)
+    const _esito = await _scriviParti({cantieri}, _versione);
+    if(!_esito.ok){ if(!_riprova) return approvaCR(crId, true); toast('⚠ Dati cambiati altrove: riprova tra un attimo'); return; }
     DB.cantieri=cantieri; save();
 
     // Marca come approvata nello staging
@@ -1735,17 +1734,14 @@ function cardCR(cr, conAzioni){
   </div>`;
 }
 
-async function approvaCR(crId){
+async function approvaCR(crId, _riprova){
   const cr = (_stagingData?.changeRequests||[]).find(r=>r.id===crId);
   if(!cr){ toast('⚠ Proposta non trovata'); return; }
 
   try{
-    // Rileggo il remoto fresco prima di modificarlo (principio merge selettivo)
-    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico&select=dati`,{
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
-    });
-    const getRows = getRes.ok ? await getRes.json() : [];
-    const remoto = (getRows&&getRows[0]&&getRows[0].dati) ? getRows[0].dati : {};
+    // Rileggo il remoto fresco prima di modificarlo (solo i cantieri + versione)
+    const _riga = await _leggiParti(['cantieri'], 'versione');
+    const remoto = _riga || {}; const _versione = _riga ? _riga.versione : null;
 
     // Applica la modifica al campo cantieri
     let cantieri = [...(remoto.cantieri||[])];
@@ -1779,13 +1775,10 @@ async function approvaCR(crId){
       }
     }
 
-    // Salva la versione aggiornata sul cloud (merge selettivo: scrivo solo cantieri)
-    const merged={...remoto, cantieri};
-    await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.unico`,{
-      method:'PATCH',
-      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({dati:merged,aggiornato_il:new Date().toISOString()})
-    });
+    // Salva SOLO i cantieri, e solo se nessun'altra app ha salvato nel frattempo
+    // (prima riscriveva tutto il blob senza controllo: poteva cancellare presenze appena salvate altrove)
+    const _esito = await _scriviParti({cantieri}, _versione);
+    if(!_esito.ok){ if(!_riprova) return approvaCR(crId, true); toast('⚠ Dati cambiati altrove: riprova tra un attimo'); return; }
 
     // Aggiorna il DB locale
     DB.cantieri = cantieri;
