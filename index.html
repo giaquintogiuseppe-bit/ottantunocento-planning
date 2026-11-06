@@ -17,149 +17,188 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--navy:#eef1f5;--navy2:#ffffff;--teal:#0e6b64;--teal2:#0b544f;--td:rgba(14,107,100,.12);--td2:rgba(14,107,100,.055);--gold:#a9781a;--red:#c0392f;--green:#2f8f5f;--text:#1b2740;--text2:#5f6a7d;--brd:#e2e5ea;--card:#ffffff;--r:12px;--r2:8px}
+/* ═══ DESIGN SYSTEM PLANNING v2 (nov 2026) ═══════════════════════════════
+   Pochi colori, ognuno con un significato. Verde acqua = identità Planning
+   (azioni principali, voce attiva). Gli STATI hanno un codice unico:
+   ok=confermato · info=in corso · warn=da confermare · danger=problema · muted=chiuso.
+   I vecchi nomi (--navy, --teal, --gold…) restano come alias: non toglierli,
+   sono usati in centinaia di stili scritti nel JS. */
+:root{
+  --bg:#f2f4f6;--surface:#ffffff;--surface-2:#f7f8fa;--line:#e1e5ea;--line-strong:#cbd2da;
+  --text:#18222f;--text2:#556070;
+  --accent:#0e6b64;--accent-hover:#0a524d;--accent-soft:#e3f1ef;--accent-softer:#f1f8f7;
+  --ok:#276b43;--ok-soft:#e5f2ea;
+  --info:#2556a8;--info-soft:#e6eefa;
+  --warn:#9a5b00;--warn-soft:#fbefd9;--warn-line:#f3d9a6;
+  --danger:#b42318;--danger-soft:#fce8e6;--danger-line:#f1b5ae;
+  --muted:#556070;--muted-soft:#edf0f3;
+  --sh1:0 1px 2px rgba(16,24,40,.06);--sh2:0 12px 32px rgba(16,24,40,.14);
+  --r:10px;--r2:6px;--r3:16px;
+  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;
+  /* alias dei vecchi nomi */
+  --navy:var(--bg);--navy2:var(--surface);--card:var(--surface);--brd:var(--line);
+  --teal:var(--accent);--teal2:var(--accent-hover);--td:var(--accent-soft);--td2:var(--accent-softer);
+  --gold:var(--warn);--red:var(--danger);--green:var(--ok)
+}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--navy);color:var(--text);font-family:'IBM Plex Sans',sans-serif;overflow-x:hidden}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.45;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #app{display:flex;flex-direction:column;height:100dvh}
+.ico{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 /* HEADER */
-#hdr{background:var(--navy2);border-bottom:1px solid var(--brd);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10}
-#hdr-logo{font-size:21px;font-weight:800;color:var(--teal)}
-#hdr-logo span{color:var(--text2);font-weight:400;font-size:12px;display:block;margin-top:1px}
-#hdr-r{display:flex;align-items:center;gap:12px}
-#hdr-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);text-align:right}
-#hdr-date b{display:block;color:var(--teal);font-size:13px}
-#cloud-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
+#hdr{background:var(--surface);border-bottom:1px solid var(--line);height:60px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;z-index:10}
+#hdr-logo{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-.01em;line-height:1.1}
+#hdr-logo span{color:var(--text2);font-weight:500;font-size:12px;display:block;letter-spacing:0}
+#hdr-r{display:flex;align-items:center;gap:16px}
+#hdr-date{font-family:var(--mono);font-size:12px;color:var(--text2);text-align:right;line-height:1.3}
+#hdr-date b{display:block;color:var(--text);font-size:13px;font-weight:600}
+#cloud-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
 #cloud-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2);transition:background .3s}
+/* tasto Esci del login: su computer in alto a destra, non sopra i pulsanti del menu */
+@media(min-width:701px){#l81out{top:14px !important;bottom:auto !important;left:auto !important;right:20px !important}#hdr-r{margin-right:84px}}
+body:has(.mo.open) #l81out{display:none !important}
 /* LAYOUT */
 #main{display:flex;flex:1;overflow:hidden}
-#sb{width:215px;background:var(--navy2);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
-.ns{padding:18px 12px 7px;font-size:11px;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase}
-.ni{display:flex;align-items:center;gap:10px;padding:10px 15px;margin:2px 7px;border-radius:var(--r2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .15s;border:1px solid transparent}
-.ni:hover{background:var(--td2);color:var(--text)}
-.ni.active{background:var(--td);color:var(--teal);border-color:rgba(0,180,166,.2)}
-#sbf{margin-top:auto;padding:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:7px}
-.btn-sb{width:100%;padding:8px;border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
-.btn-teal{background:var(--td);color:var(--teal);border:1px solid rgba(0,180,166,.3)}
-.btn-teal:hover{background:var(--teal);color:#fff}
-.btn-gold{background:rgba(232,184,75,.12);color:var(--gold);border:1px solid rgba(232,184,75,.3)}
-.btn-gold:hover{background:var(--gold);color:#fff}
-.btn-gray{background:transparent;color:var(--text2);border:1px solid var(--brd)}
-.btn-gray:hover{border-color:var(--text2);color:var(--text)}
+#sb{width:232px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;padding:8px 12px 0}
+.ns{padding:16px 10px 4px;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--text2);text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;margin:1px 0;border-radius:var(--r2);cursor:pointer;font-size:14px;font-weight:500;color:var(--text);transition:background .12s,color .12s}
+.ni .ico{color:var(--text2)}
+.ni:hover{background:var(--surface-2)}
+.ni.active{background:var(--accent-soft);color:var(--accent-hover);font-weight:600}
+.ni.active .ico{color:var(--accent)}
+#sbf{margin:auto -12px 0;padding:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.btn-sb{width:100%;min-height:34px;padding:6px 10px;border-radius:var(--r2);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .12s;background:var(--surface);color:var(--text);border:1px solid var(--line-strong);text-align:left}
+.btn-sb:hover{background:var(--surface-2)}
+.btn-teal{color:var(--accent-hover);border-color:var(--line-strong)}
+.btn-teal:hover{background:var(--accent-softer);border-color:var(--accent)}
+.btn-gold,.btn-gray{color:var(--text)}
 /* CONTENT */
-#cnt{flex:1;overflow-y:auto;padding:22px}
-.pg{display:none}.pg.active{display:block;animation:fi .18s ease}
-@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-.pt{font-size:25px;font-weight:800;margin-bottom:3px}
-.ps{font-size:13px;color:var(--text2);margin-bottom:20px;font-family:'IBM Plex Mono',monospace}
-/* STAT CARDS */
-.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;margin-bottom:20px}
-.sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:15px}
-.sc .lb{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
-.sc .vl{font-size:24px;font-weight:800;color:var(--teal);font-family:'IBM Plex Mono',monospace}
-.sc .sb2{font-size:12px;color:var(--text2);margin-top:3px}
+#cnt{flex:1;overflow-y:auto;padding:28px 32px}
+.pg{display:none}.pg.active{display:block;animation:fi .16s ease}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.pt{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px;line-height:1.2}
+.ps{font-size:14px;color:var(--text2);margin-bottom:22px}
+/* SCHEDE NUMERICHE */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:22px}
+.sc,.dc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh1)}
+.sc .lb,.dc .dl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+.sc .vl,.dc .dv{font-size:28px;font-weight:600;color:var(--text);font-family:var(--mono);line-height:1.1}
+.sc .sb2,.dc .ds{font-size:13px;color:var(--text2);margin-top:4px}
+.dg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:22px}
+@media(min-width:860px){.dg{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}}
 /* FORM */
-.fc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;margin-bottom:18px}
-.fc h3{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--teal);text-transform:uppercase;letter-spacing:.5px}
-.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.fg label{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);font-weight:600;display:block;margin-bottom:5px}
-.fg input,.fg select,.fg textarea{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;outline:none;width:100%;transition:border-color .15s}
-.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--teal)}
-.fg textarea{resize:vertical;min-height:60px}
-.fg select option{background:var(--navy2)}
-.fa{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
-.bp{padding:9px 18px;background:var(--teal);color:#fff;border:none;border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s}
-.bp:hover{background:var(--teal2)}
-.bs{padding:9px 18px;background:transparent;color:var(--text2);border:1px solid var(--brd);border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;cursor:pointer}
-.bd{padding:5px 10px;background:transparent;color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:var(--r2);font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12px;cursor:pointer}
-.bd:hover{background:rgba(232,75,75,.1)}
-/* TABLE */
-.tc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
-.th{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--brd);flex-wrap:wrap;gap:8px}
-.th h3{font-size:13px;font-weight:700}
-.ts{background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:6px 10px;outline:none;width:180px}
-.ts:focus{border-color:var(--teal)}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{padding:9px 14px;text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);background:var(--brd);border-bottom:1px solid var(--brd);font-weight:700}
-tbody tr{border-bottom:1px solid var(--brd);transition:background .1s}
-tbody tr:nth-child(even){background:var(--td2)}
+.fc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:18px;box-shadow:var(--sh1)}
+.fc h3{font-size:17px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.fg label{font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:6px}
+.fg input,.fg select,.fg textarea{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r2);color:var(--text);font-family:var(--font);font-size:14px;min-height:40px;padding:9px 12px;outline:none;width:100%;transition:border-color .12s,box-shadow .12s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.fg textarea{resize:vertical;min-height:72px}
+.fg select option{background:var(--surface)}
+.fa{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+/* PULSANTI: uno pieno per schermata (.bp), gli altri bordati (.bs) */
+.bp,.bs,.bd{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:0 16px;border-radius:var(--r2);font-family:var(--font);font-weight:600;font-size:14px;cursor:pointer;transition:background .12s,border-color .12s,color .12s;white-space:nowrap}
+.bp{background:var(--accent);color:#fff;border:1px solid var(--accent)}
+.bp:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.bs{background:var(--surface);color:var(--text);border:1px solid var(--line-strong)}
+.bs:hover{background:var(--surface-2)}
+.bd{min-height:32px;padding:0 12px;font-size:13px;background:var(--surface);color:var(--danger);border:1px solid var(--danger-line)}
+.bd:hover{background:var(--danger-soft)}
+/* TABELLE */
+.tc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:18px;box-shadow:var(--sh1)}
+.th{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:10px}
+.th h3{font-size:17px;font-weight:600}
+.ts{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r2);color:var(--text);font-family:var(--font);font-size:14px;min-height:36px;padding:6px 12px;outline:none;width:220px}
+.ts:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{padding:10px 16px;text-align:left;font-size:12px;font-weight:600;color:var(--text2);background:var(--surface-2);border-bottom:1px solid var(--line)}
+tbody tr{border-bottom:1px solid var(--line);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
-tbody tr:hover{background:rgba(0,180,166,.08)}
-tbody td{padding:10px 14px;vertical-align:middle}
-.mn{font-family:'IBM Plex Mono',monospace}
-/* BADGE */
-.bx{display:inline-block;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700}
-.bg{background:rgba(75,232,122,.15);color:var(--green)}
-.br{background:rgba(232,75,75,.15);color:var(--red)}
-.bo{background:rgba(232,184,75,.15);color:var(--gold)}
-.bt{background:var(--td);color:var(--teal)}
-.bz{background:rgba(138,149,168,.15);color:var(--text2)}
-/* DASHBOARD */
-.dg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
-@media(min-width:860px){.dg{grid-template-columns:repeat(4,1fr)}}
-.dc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px}
-.dc .dl{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
-.dc .dv{font-size:28px;font-weight:800;color:var(--teal);font-family:'IBM Plex Mono',monospace;line-height:1}
-.dc .ds{font-size:11px;color:var(--text2);margin-top:5px;font-family:'IBM Plex Mono',monospace}
-.rl{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
-.ri{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--brd);gap:10px}
+tbody tr:hover{background:var(--surface-2)}
+tbody td{padding:12px 16px;vertical-align:middle}
+.mn{font-family:var(--mono)}
+/* BADGE — stessi colori ovunque. Con .st (stato) compare anche il pallino:
+   forma diversa per ogni stato, si distingue anche senza colori. */
+.bx{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;line-height:1.4;white-space:nowrap}
+.bg{background:var(--ok-soft);color:var(--ok)}
+.bi{background:var(--info-soft);color:var(--info)}
+.bo{background:var(--warn-soft);color:var(--warn)}
+.br{background:var(--danger-soft);color:var(--danger)}
+.bt{background:var(--accent-soft);color:var(--accent-hover)}
+.bz,.bc{background:var(--muted-soft);color:var(--muted)}
+.bx.st::before{content:'';width:7px;height:7px;flex-shrink:0;background:currentColor;border-radius:50%}
+.bx.st.bo::before{border-radius:2px}
+.bx.st.br::before{border-radius:0;transform:rotate(45deg) scale(.9)}
+.bx.st.bc::before{background:transparent;border:1.5px solid currentColor;box-sizing:border-box}
+.bx.st.bz::before{background:transparent;border:1.5px dashed currentColor;box-sizing:border-box}
+/* DASHBOARD / ELENCHI */
+.rl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh1)}
+.ri{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);gap:12px}
 .ri:last-child{border-bottom:none}
-.ri .rlt{font-size:13px;font-weight:600}
-.card-title{font-size:14px;font-weight:700}
-.ri .rls{font-size:11px;color:var(--text2);margin-top:2px;font-family:'IBM Plex Mono',monospace}
-.sl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:9px;font-weight:700}
-/* MODAL */
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.ri .rlt{font-size:14px;font-weight:600}
+.card-title{font-size:15px;font-weight:600}
+.ri .rls{font-size:13px;color:var(--text2);margin-top:2px}
+.sl{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:10px}
+/* FINESTRE */
+.mo{display:none;position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:100;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px)}
 .mo.open{display:flex}
-.md{background:var(--navy2);border:1px solid var(--brd);border-radius:14px;width:100%;max-width:600px;max-height:92dvh;overflow-y:auto}
-.mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--brd)}
-.mh h3{font-size:15px;font-weight:700}
-.mc{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1}
-.mb{padding:18px 20px}
-.mf{padding:13px 20px;border-top:1px solid var(--brd);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
-/* MOBILE NAV */
-#mnav{display:none;background:var(--navy2);border-top:1px solid var(--brd);flex-shrink:0}
-.mni{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 2px}
-.mni::-webkit-scrollbar{display:none}
-.mni-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);border-top:2px solid transparent;flex-shrink:0;white-space:nowrap}
-.mni-item .mii{font-size:18px}
-.mni-item.active{color:var(--teal);border-top-color:var(--teal)}
+.md{background:var(--surface);border:none;border-radius:var(--r3);width:100%;max-width:600px;max-height:92dvh;overflow-y:auto;box-shadow:var(--sh2)}
+.mh{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 16px 24px;border-bottom:1px solid var(--line)}
+.mh h3{font-size:17px;font-weight:600}
+.mc{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:none;border:none;border-radius:var(--r2);color:var(--text2);font-size:18px;cursor:pointer;line-height:1}
+.mc:hover{background:var(--surface-2);color:var(--text)}
+.mb{padding:20px 24px}
+.mf{padding:14px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+/* BARRA IN BASSO (telefono): 4 voci fisse + Altro */
+#mnav{display:none;background:var(--surface);border-top:1px solid var(--line);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom)}
+.mni{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.mni-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;padding:6px 2px;cursor:pointer;font-size:11px;font-weight:500;color:var(--text2);border-top:2px solid transparent;white-space:nowrap}
+.mni-item .ico{width:22px;height:22px}
+.mni-item.active{color:var(--accent);border-top-color:var(--accent);font-weight:600}
+/* Foglio "Altro" */
+.altro-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.altro-lista .ni{min-height:52px;border:1px solid var(--line);margin:0}
 /* IMPORT CALENDAR */
 .gcal-login-box{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:24px;text-align:center;margin-bottom:18px}
 .gcal-login-box p{font-size:13px;color:var(--text2);margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto}
 .gcal-status{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-bottom:14px}
 .gcal-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2)}
 .gcal-status-dot.ok{background:var(--green)}
-.ev-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ev-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:var(--sh1)}
 .ev-card.imported{opacity:.55}
 .ev-info{flex:1;min-width:180px}
-.ev-title{font-size:13px;font-weight:700;margin-bottom:3px}
-.ev-meta{font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
-.ev-actions{display:flex;gap:7px;flex-wrap:wrap}
+.ev-title{font-size:14px;font-weight:600;margin-bottom:3px}
+.ev-meta{font-size:12px;color:var(--text2);font-family:var(--mono)}
+.ev-actions{display:flex;gap:8px;flex-wrap:wrap}
 /* MOBILE PWA */
-.oggi-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:12px}
-.oggi-card .oc-label{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;font-weight:700}
-.oggi-card .oc-title{font-size:16px;font-weight:800;margin-bottom:4px}
-.oggi-card .oc-meta{font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
-.oggi-intervento{background:var(--td2);border-left:3px solid var(--teal);border-radius:0 var(--r2) var(--r2) 0;padding:10px 13px;margin-bottom:8px}
-.oggi-intervento .oi-time{font-size:13px;font-weight:700;color:var(--teal);font-family:'IBM Plex Mono',monospace}
-.oggi-intervento .oi-desc{font-size:13px;font-weight:600;margin:2px 0}
-.oggi-intervento .oi-meta{font-size:11px;color:var(--text2)}
-.pwa-install-banner{background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.oggi-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:var(--sh1)}
+.oggi-card .oc-label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:6px;font-weight:600}
+.oggi-card .oc-title{font-size:16px;font-weight:600;margin-bottom:4px}
+.oggi-card .oc-meta{font-size:13px;color:var(--text2)}
+.oggi-intervento{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:var(--sh1)}
+.oggi-intervento .oi-time{font-size:13px;font-weight:600;color:var(--text);font-family:var(--mono)}
+.oggi-intervento .oi-desc{font-size:15px;font-weight:600;margin:2px 0}
+.oggi-intervento .oi-meta{font-size:13px;color:var(--text2)}
+.pwa-install-banner{background:var(--td);border:1px solid rgba(14,107,100,.3);border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .pwa-install-banner p{font-size:12px;color:var(--text);margin:0}
 @media(max-width:700px){
-  #sb{display:none}#mnav{display:block}#cnt{padding:14px 14px 84px}
+  #sb{display:none}#mnav{display:block}#cnt{padding:16px 16px 72px}
+  #hdr{padding:0 16px;height:56px}
+  #hdr-date{display:none}
+  #hdr-logo span{display:none}
   .sg{grid-template-columns:1fr}.fg{grid-template-columns:1fr}
   .dg{grid-template-columns:repeat(2,1fr);gap:10px}
   thead th:nth-child(n+5),tbody td:nth-child(n+5){display:none}
 
-  /* bottom nav più grande su mobile */
-  .mni-item{padding:10px 10px;font-size:11px}
-  .mni-item .mii{font-size:22px}
-
   /* card touch-friendly con più respiro */
   .fc{padding:16px;margin-bottom:14px}
   .sc{padding:16px}
-  .bp,.bs{padding:11px 16px;font-size:13px}
+  /* su telefono tutto ciò che si tocca è alto almeno 44px */
+  .bp,.bs{min-height:44px;font-size:15px}
+  .bd{min-height:40px}
+  .ni{min-height:44px}
+  /* tasto Esci del login: sopra la barra in basso, non sopra le voci */
+  #l81out{bottom:76px !important}
 
   /* RIGHE LISTA — più alte, info impilate invece che affiancate */
   .ri{flex-direction:column;align-items:flex-start;gap:8px;padding:14px 15px}
@@ -169,7 +208,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
   /* titoli e testi più leggibili, meno compressi */
   .pt{font-size:24px;margin-bottom:5px}
   .ps{font-size:14px;margin-bottom:18px;line-height:1.4}
-  .sl{font-size:12px;letter-spacing:1.2px;margin-top:22px;margin-bottom:11px}
+  .sl{font-size:12px;margin-top:22px;margin-bottom:10px}
   .rlt{font-size:16px;line-height:1.4}
   .rls{font-size:13px;line-height:1.5;color:var(--text2)}
 
@@ -178,29 +217,27 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
   /* form: più spazio tra campi */
   .fg{gap:14px}
-  .fg label{font-size:11px;margin-bottom:6px}
-  .fg input,.fg select,.fg textarea{padding:11px 12px;font-size:14px}
-
-  /* badge e bx più leggibili */
-  .bx{font-size:11px;padding:4px 10px}
+  .fg label{font-size:13px;margin-bottom:6px}
+  .fg input,.fg select,.fg textarea{min-height:44px;padding:11px 12px;font-size:16px}
 
   /* sezioni form con titoli h3 più staccati */
-  .fc h3{font-size:13px;margin-bottom:12px;padding-bottom:8px}
+  .fc h3{font-size:16px;margin-bottom:12px}
 
-  /* modal full-screen su mobile */
-  .md{max-height:100dvh;border-radius:14px 14px 0 0;position:fixed;bottom:0;left:0;right:0;width:100%}
+  /* finestre: foglio che sale dal basso */
+  .md{max-height:94dvh;border-radius:var(--r3) var(--r3) 0 0;position:fixed;bottom:0;left:0;right:0;width:100%;padding-bottom:env(safe-area-inset-bottom)}
   .mo{align-items:flex-end;padding:0}
+  .mh{padding:12px 12px 12px 18px}
+  .mc{width:44px;height:44px}
   .mb{padding:18px}
   .mf{padding:14px 18px;gap:10px}
 
   /* tabelle: testo più leggibile, meno colonne affollate */
-  table{font-size:12px}
+  table{font-size:13px}
   td,th{padding:10px 8px !important}
 }
 @media(max-width:420px){
   /* schermi molto piccoli (iPhone SE/mini): ulteriore respiro */
-  .pt{font-size:20px}
-  .dg{grid-template-columns:1fr}
+  .pt{font-size:22px}
 }
 @media(max-width:700px){
   /* pagina Oggi: più aria tra intervento e intervento */
@@ -217,13 +254,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .fc>div[style*="justify-content:space-between"]>div:last-child{align-self:flex-start;flex-direction:row !important;flex-wrap:wrap}
 
   /* titoli card (nome dipendente/mezzo/cantiere) più grandi e leggibili */
-  .card-title{font-size:17px !important;font-weight:800 !important;line-height:1.3}
-  .rlt{font-size:16px !important;font-weight:700;line-height:1.35}
+  .card-title{font-size:17px !important;font-weight:600 !important;line-height:1.3}
+  .rlt{font-size:16px !important;font-weight:600;line-height:1.35}
   .rls{font-size:13px !important;line-height:1.5}
 
-  /* badge/tag multipli: più grandi, più margine, più leggibili */
-  .bx{font-size:11px !important;padding:5px 11px !important;margin:3px;font-weight:800}
-  span.bx{margin:3px}
+  /* badge/tag multipli: un po' di margine quando vanno a capo */
+  span.bx{margin:2px}
 
   /* testo secondario (telefono, note, meta) leggermente più grande */
   div[style*="font-size:11px"],div[style*="font-size:11px"]{font-size:12px !important}
@@ -233,8 +269,8 @@ tbody td{padding:10px 14px;vertical-align:middle}
   .ri{padding:16px}
   .rl .ri{min-height:60px}
 }
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:2px}
-#toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal);color:#fff;padding:9px 20px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:rgba(16,24,40,.18);border-radius:3px}
+#toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;box-shadow:var(--sh2);opacity:0;transition:all .25s;z-index:200;pointer-events:none;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 <!-- ═══════════════════════════════════════════════════════════════════════
@@ -433,6 +469,23 @@ tbody td{padding:10px 14px;vertical-align:middle}
 
 </head>
 <body>
+<!-- ICONE (design system v2): disegnate a tratto, uguali su ogni telefono. Uso: <svg class="ico"><use href="#i-oggi"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-oggi" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+  <symbol id="i-commesse" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 13v6M9 16l3 3 3-3"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></symbol>
+  <symbol id="i-squadre" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-mezzi" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+  <symbol id="i-risorse" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+  <symbol id="i-clienti" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+  <symbol id="i-altro" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-proposte" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+</svg>
 <div id="app">
 
 <!-- HEADER -->
@@ -440,9 +493,9 @@ tbody td{padding:10px 14px;vertical-align:middle}
   <div id="hdr-logo">81|00<span>Planning Lavori</span></div>
   <div id="hdr-r">
     <!-- Badge notifica proposte Roberto nell'header -->
-    <button onclick="nav('inbox');caricaInbox()" style="position:relative;background:transparent;border:1px solid var(--brd);border-radius:8px;padding:6px 12px;color:var(--text2);font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
-      📨 Proposte
-      <span id="hdr-inbox-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:18px;height:18px;align-items:center;justify-content:center;flex-shrink:0">0</span>
+    <button class="bs" onclick="nav('inbox');caricaInbox()" style="position:relative;min-height:36px;padding:0 12px;font-size:13px">
+      <svg class="ico"><use href="#i-proposte"/></svg>Proposte
+      <span id="hdr-inbox-badge" style="display:none;background:var(--danger);color:#fff;font-size:11px;font-weight:600;border-radius:999px;min-width:20px;height:20px;padding:0 6px;align-items:center;justify-content:center;flex-shrink:0">0</span>
     </button>
     <div id="cloud-status"><span id="cloud-status-dot"></span><span id="cloud-status-text">—</span></div>
     <div id="hdr-date"><b id="hdate"></b><span id="htime"></span></div>
@@ -452,30 +505,28 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <div id="main">
 <!-- SIDEBAR -->
 <div id="sb">
-  <div class="ns">Overview</div>
-  <div class="ni active" onclick="nav('dash')">⬛ Dashboard</div>
-  <div class="ni" onclick="nav('oggi')">📋 Oggi</div>
-  <div class="ns">Pianificazione</div>
-  <div class="ni" onclick="nav('cantieri')">🏗️ Commesse</div>
-  <div class="ni" onclick="nav('calendario')">📅 Calendario</div>
-  <div class="ni" onclick="nav('import-cal')">📥 Importa da Calendar</div>
-  <div class="ni" onclick="nav('risorse2')">🪑 Risorse & Depositi</div>
-  <div class="ni" onclick="nav('mezzi-db')">🚛 Mezzi d'opera</div>
-  <div class="ns">Clienti</div>
-  <div class="ni" onclick="nav('clienti')">👥 Clienti</div>
+  <div class="ns">Operativo</div>
+  <div class="ni active" onclick="nav('dash')"><svg class="ico"><use href="#i-dash"/></svg>Dashboard</div>
+  <div class="ni" onclick="nav('oggi')"><svg class="ico"><use href="#i-oggi"/></svg>Oggi</div>
+  <div class="ni" onclick="nav('cantieri')"><svg class="ico"><use href="#i-commesse"/></svg>Commesse</div>
+  <div class="ni" onclick="nav('calendario')"><svg class="ico"><use href="#i-cal"/></svg>Calendario</div>
+  <div class="ni" id="ni-inbox" onclick="nav('inbox')"><svg class="ico"><use href="#i-inbox"/></svg><span style="flex:1">Inbox Roberto</span><span id="sb-inbox-badge" style="display:none;background:var(--danger);color:#fff;font-size:12px;font-weight:600;border-radius:999px;min-width:22px;padding:1px 7px;text-align:center">0</span></div>
   <div class="ns">Risorse</div>
-  <div class="ni" onclick="nav('personale')">👷 Personale</div>
-  <div class="ni" onclick="nav('squadre')">👥 Squadre</div>
-  <div class="ni" onclick="nav('mezzi-db')">🚛 Mezzi d'opera</div>
+  <div class="ni" onclick="nav('personale')"><svg class="ico"><use href="#i-persona"/></svg>Personale</div>
+  <div class="ni" onclick="nav('squadre')"><svg class="ico"><use href="#i-squadre"/></svg>Squadre</div>
+  <div class="ni" onclick="nav('mezzi-db')"><svg class="ico"><use href="#i-mezzi"/></svg>Mezzi d'opera</div>
+  <div class="ni" onclick="nav('risorse2')"><svg class="ico"><use href="#i-risorse"/></svg>Risorse e depositi</div>
+  <div class="ns">Contatti</div>
+  <div class="ni" onclick="nav('clienti')"><svg class="ico"><use href="#i-clienti"/></svg>Clienti</div>
   <div class="ns">Sistema</div>
-  <div class="ni" id="ni-inbox" onclick="nav('inbox')">📥 Inbox Roberto <span id="sb-inbox-badge" style="display:none;background:var(--gold);color:#000;font-size:11px;font-weight:800;border-radius:8px;padding:1px 6px;margin-left:4px">0</span></div>
-  <div class="ni" onclick="nav('sync')">☁️ Sync & Calendar</div>
+  <div class="ni" onclick="nav('import-cal')"><svg class="ico"><use href="#i-import"/></svg>Importa da Calendar</div>
+  <div class="ni" onclick="nav('sync')"><svg class="ico"><use href="#i-cloud"/></svg>Sync e Calendar</div>
   <div id="sbf">
-    <button class="btn-sb btn-gold" onclick="nav('cantieri')">📊 Esporta programma</button>
-    <button class="btn-sb btn-teal" onclick="cloudSalvaOra()">☁️ Salva sul cloud</button>
-    <button class="btn-sb btn-gray" onclick="cloudCaricaOra()">📂 Carica dal cloud</button>
-    <button class="btn-sb btn-teal" onclick="planningExportJSON()">⬇ Backup JSON</button>
-    <button class="btn-sb btn-gray" onclick="document.getElementById('impFP').click()">⬆ Ripristina JSON</button>
+    <button class="btn-sb btn-gold" onclick="nav('cantieri')">Esporta programma</button>
+    <button class="btn-sb btn-teal" onclick="cloudSalvaOra()">Salva sul cloud</button>
+    <button class="btn-sb btn-gray" onclick="cloudCaricaOra()">Carica dal cloud</button>
+    <button class="btn-sb btn-teal" onclick="planningExportJSON()">Backup JSON</button>
+    <button class="btn-sb btn-gray" onclick="document.getElementById('impFP').click()">Ripristina JSON</button>
     <input type="file" id="impFP" accept=".json" style="display:none" onchange="planningImportJSON(event)">
   </div>
 </div>
@@ -607,7 +658,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div id="r2r-note-riparto" style="font-size:11px;color:var(--text2);margin-top:6px"></div>
       </div>
       <div class="mf">
-        <button id="r2r-del" onclick="r2EliminaRisorsa()" style="display:none;background:none;border:1px solid rgba(232,84,84,.4);color:var(--red);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px">🗑 Elimina</button>
+        <button id="r2r-del" onclick="r2EliminaRisorsa()" style="display:none;background:none;border:1px solid rgba(180,35,24,.4);color:var(--red);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px">🗑 Elimina</button>
         <div style="flex:1"></div>
         <button class="bs" onclick="closeModal('modal-r2-risorsa')">Annulla</button>
         <button class="bp" onclick="r2SalvaRisorsa()">💾 Salva</button>
@@ -665,7 +716,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <div id="r2a-disp-info" style="font-size:12px;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--navy)"></div>
       </div>
       <div class="mf">
-        <button id="r2a-del" onclick="r2EliminaAlloc()" style="display:none;background:none;border:1px solid rgba(232,84,84,.4);color:var(--red);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px">🗑 Elimina</button>
+        <button id="r2a-del" onclick="r2EliminaAlloc()" style="display:none;background:none;border:1px solid rgba(180,35,24,.4);color:var(--red);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px">🗑 Elimina</button>
         <div style="flex:1"></div>
         <button class="bs" onclick="closeModal('modal-r2-alloc')">Annulla</button>
         <button class="bp" onclick="r2SalvaAlloc()">💾 Salva</button>
@@ -711,7 +762,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
                 <select id="mc-cliente-id" onchange="aggiornaCampiDaCliente()" style="flex:1;background:var(--navy);border:1px solid var(--brd);border-radius:var(--r2);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;outline:none">
                   <option value="">— Seleziona cliente o inserisci manuale —</option>
                 </select>
-                <button type="button" onclick="apriModalCliente()" title="Nuovo cliente" style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:var(--r2);padding:9px 11px;color:var(--teal);font-size:13px;cursor:pointer;white-space:nowrap">+ 👥</button>
+                <button type="button" onclick="apriModalCliente()" title="Nuovo cliente" style="background:var(--td);border:1px solid rgba(14,107,100,.3);border-radius:var(--r2);padding:9px 11px;color:var(--teal);font-size:13px;cursor:pointer;white-space:nowrap">+ 👥</button>
               </div>
             </div>
             <div><label>Committente</label><input id="mc-committente" placeholder="es. Comune di Caserta"></div>
@@ -1398,12 +1449,12 @@ tbody td{padding:10px 14px;vertical-align:middle}
             <div style="display:flex;gap:8px;align-items:center">
               <select id="mov-to" style="background:var(--navy);border:1px solid var(--brd);border-radius:8px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:9px 11px;flex:1;outline:none"></select>
               <button onclick="apriNuovoClienteVeloce()" title="Crea nuovo cliente/deposito"
-                style="background:var(--td);border:1px solid rgba(0,180,166,.3);border-radius:8px;padding:9px 12px;color:var(--teal);font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0">+ 🏠</button>
+                style="background:var(--td);border:1px solid rgba(14,107,100,.3);border-radius:8px;padding:9px 12px;color:var(--teal);font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0">+ 🏠</button>
             </div>
           </div>
           <div class="fs"><label>Note</label><input type="text" id="mov-note" placeholder="Note sul movimento..."></div>
         </div>
-        <div id="mov-avviso" style="display:none;background:rgba(232,184,75,.1);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--gold)"></div>
+        <div id="mov-avviso" style="display:none;background:rgba(154,91,0,.1);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12px;color:var(--gold)"></div>
       </div>
       <div class="mf">
         <button class="bs" onclick="closeModal('modal-mov')">Annulla</button>
@@ -1566,7 +1617,7 @@ tbody td{padding:10px 14px;vertical-align:middle}
         <input type="date" id="r2-data" onchange="r2Render()" style="max-width:160px">
         <button class="bs" onclick="document.getElementById('r2-data').value=r2today();r2Render()" style="font-size:12px">Oggi</button>
         <div style="flex:1"></div>
-        <button id="r2-badge-rientri" onclick="r2ApriRientri()" style="display:none;align-items:center;gap:4px;background:rgba(232,184,75,.15);border:1px solid rgba(232,184,75,.4);color:#e8b84b;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"></button>
+        <button id="r2-badge-rientri" onclick="r2ApriRientri()" style="display:none;align-items:center;gap:4px;background:rgba(154,91,0,.15);border:1px solid rgba(154,91,0,.4);color:#9A5B00;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit"></button>
         <button class="bp" onclick="r2ApriRisorsa()">➕ Risorsa</button>
         <button class="bs" onclick="r2ApriDeposito()">🏭 Depositi</button>
       </div>
@@ -1777,17 +1828,28 @@ tbody td{padding:10px 14px;vertical-align:middle}
 <!-- MOBILE NAV -->
 <div id="mnav">
   <div class="mni">
-    <div class="mni-item active" onclick="nav('oggi')"><span class="mii">📋</span>Oggi</div>
-    <div class="mni-item" onclick="nav('cantieri')"><span class="mii">🏗️</span>Cantieri</div>
-    <div class="mni-item" onclick="nav('calendario')"><span class="mii">📅</span>Cal.</div>
-    <div class="mni-item" onclick="nav('personale')"><span class="mii">👷</span>Persone</div>
-    <div class="mni-item" onclick="nav('squadre')"><span class="mii">👥</span>Squadre</div>
-    <div class="mni-item" onclick="nav('risorse2')"><span class="mii">🪑</span>Risorse</div>
-    <div class="mni-item" onclick="nav('clienti')"><span class="mii">👥</span>Clienti</div>
-    <div class="mni-item" onclick="nav('mezzi-db')"><span class="mii">🚛</span>Mezzi</div>
-    <div class="mni-item" onclick="nav('dash')"><span class="mii">⬛</span>Dash</div>
-    <div class="mni-item" onclick="nav('inbox')"><span class="mii">📥</span>Inbox</div>
-    <div class="mni-item" onclick="nav('sync')"><span class="mii">☁️</span>Sync</div>
+    <div class="mni-item active" onclick="nav('oggi')"><svg class="ico"><use href="#i-oggi"/></svg>Oggi</div>
+    <div class="mni-item" onclick="nav('cantieri')"><svg class="ico"><use href="#i-commesse"/></svg>Commesse</div>
+    <div class="mni-item" onclick="nav('calendario')"><svg class="ico"><use href="#i-cal"/></svg>Calendario</div>
+    <div class="mni-item" onclick="nav('personale')"><svg class="ico"><use href="#i-persona"/></svg>Persone</div>
+    <div class="mni-item" id="mni-altro" onclick="openModal('modal-altro')"><svg class="ico"><use href="#i-altro"/></svg>Altro</div>
+  </div>
+</div>
+
+<!-- FOGLIO "ALTRO" (telefono): tutte le pagine che non stanno nella barra in basso -->
+<div class="mo" id="modal-altro" onclick="if(event.target===this)closeModal('modal-altro')">
+  <div class="md" style="max-width:480px">
+    <div class="mh"><h3>Altre pagine</h3><button class="mc" aria-label="Chiudi" onclick="closeModal('modal-altro')">✕</button></div>
+    <div class="mb altro-lista">
+      <div class="ni" onclick="altroVai('dash')"><svg class="ico"><use href="#i-dash"/></svg>Dashboard</div>
+      <div class="ni" onclick="altroVai('squadre')"><svg class="ico"><use href="#i-squadre"/></svg>Squadre</div>
+      <div class="ni" onclick="altroVai('mezzi-db')"><svg class="ico"><use href="#i-mezzi"/></svg>Mezzi</div>
+      <div class="ni" onclick="altroVai('risorse2')"><svg class="ico"><use href="#i-risorse"/></svg>Risorse</div>
+      <div class="ni" onclick="altroVai('clienti')"><svg class="ico"><use href="#i-clienti"/></svg>Clienti</div>
+      <div class="ni" onclick="altroVai('inbox')"><svg class="ico"><use href="#i-inbox"/></svg>Inbox</div>
+      <div class="ni" onclick="altroVai('import-cal')"><svg class="ico"><use href="#i-import"/></svg>Importa</div>
+      <div class="ni" onclick="altroVai('sync')"><svg class="ico"><use href="#i-cloud"/></svg>Sync</div>
+    </div>
   </div>
 </div>
 
