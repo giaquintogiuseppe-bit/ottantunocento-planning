@@ -5463,7 +5463,8 @@ function renderCantieri(){
     return;
   }
 
-  list.innerHTML = cantieri.map(c=>{
+  const _rg = typeof RAGGRUPPA!=='undefined'; if(_rg) RAGGRUPPA.registra('cantieri', renderCantieri);
+  const _riga = c=>{
     const b = statoBadge(c);
     // margine rimosso dal Planning — gestito nel Gestionale
     const nInterventi = (c.interventi||[]).length;
@@ -5496,7 +5497,16 @@ function renderCantieri(){
         </div>
       </div>
     </div>`;
-  }).join('');
+  };
+  // Da seguire in cima (cantieri attivi, nell'ordine di sempre), conclusi/persi/archiviati per anno ▸ mese
+  // di inizio (raggruppa.js). Senza "Mostra archivio" l'elenco resta quello di prima; la ricerca mostra tutto.
+  const _attivo = c=>!c.archiviato && statoBadge(c).txt!=='concluso' && statoBadge(c).txt!=='perso';
+  const _haArchivio = cantieri.some(c=>!_attivo(c));
+  list.innerHTML = (_rg && _haArchivio)
+    ? `<div style="margin-bottom:10px">${RAGGRUPPA.selettoreAnno('cantieri', DB.cantieri||[], c=>c.periodoInizio)}</div>`
+      + RAGGRUPPA.tabella({ chiave:'cantieri', modo:'blocchi', voci:cantieri, cerca:search, riga:_riga,
+          data:c=>c.periodoInizio||c.periodoFine||'', daSeguire:_attivo })
+    : cantieri.map(_riga).join('');
 
   // imposta date default export se vuote
   const ef = document.getElementById('exp-from');
