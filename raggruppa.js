@@ -21,7 +21,9 @@
         cerca:'testo' (facoltativo: se pieno, elenco piatto),
         anno:'2026'|'tutti' (facoltativo: anno scelto da un selettore già esistente),
         ordina:false (tiene l'ordine ricevuto dentro i mesi), crescente:true (mesi dal
-        più vicino, per le scadenze), modo:'blocchi' (intestazioni <div> per griglie di schede) });
+        più vicino, per le scadenze), modo:'blocchi' (intestazioni <div> per griglie di schede),
+        titoloSeguire:'Prossime' (facoltativo, al posto di "Da seguire") });
+   Con un solo anno (e "Tutti gli anni") l'intestazione dell'anno non compare: solo i mesi.
      selettore: RAGGRUPPA.selettoreAnno('commesse', voci, v=>data)
    Script classico: espone solo l'oggetto globale RAGGRUPPA.
    ═══════════════════════════════════════════════════════════════════════ */
@@ -94,6 +96,7 @@ const RAGGRUPPA = (function(){
     const st=leggi(chiave), sel=o.anno!=null ? (o.anno||'tutti') : annoDi(chiave), blk=o.modo==='blocchi';
     const ord = o.crescente ? (a,b)=>a.localeCompare(b) : (a,b)=>b.localeCompare(a);
     const somma = arr => o.somma ? `<span class="rg-s">${e(fm(arr.reduce((s,v)=>s+(+o.somma(v)||0),0)))}</span>` : '';
+    const titoloSeg = o.titoloSeguire || 'Da seguire';
     const testa = (cls, gruppo, predef, titolo, arr) => {
       const on = gruppo in st ? st[gruppo] : predef;
       const btn=`<button type="button" aria-expanded="${on}"
@@ -103,7 +106,7 @@ const RAGGRUPPA = (function(){
                              : `<tr class="rg-h ${cls}${on?' on':''}"><td colspan="${col}">${btn}</td></tr>` };
     };
     let h='';
-    if(seg.length){ const t=testa('rg-seg','_seg',true,'Da seguire',seg); h+=t.html; if(t.on) h+=seg.map(riga).join(''); }
+    if(seg.length){ const t=testa('rg-seg','_seg',true,e(titoloSeg),seg); h+=t.html; if(t.on) h+=seg.map(riga).join(''); }
 
     // per anno ▸ mese, dal più recente; senza data in fondo
     const perMese={}; let senza=[];
@@ -117,7 +120,7 @@ const RAGGRUPPA = (function(){
     anni.forEach(a=>{
       const mm=mesi.filter(m=>m.startsWith(a));
       let apertoAnno=true;
-      if(sel==='tutti'){ const tot=mm.flatMap(m=>perMese[m]); const t=testa('rg-anno','a'+a,a===primoAnno||mm.some(m=>recenti.has(m)),a,tot); h+=t.html; apertoAnno=t.on; }
+      if(sel==='tutti' && (anni.length>1 || o.titoloAnno)){ const tot=mm.flatMap(m=>perMese[m]); const t=testa('rg-anno','a'+a,a===primoAnno||mm.some(m=>recenti.has(m)),a,tot); h+=t.html; apertoAnno=t.on; }
       if(!apertoAnno) return;
       mm.forEach(m=>{
         const arr=perMese[m], t=testa('rg-mese','m'+m,recenti.has(m),`${MESI[+m.slice(5,7)-1]} ${m.slice(0,4)}`,arr);

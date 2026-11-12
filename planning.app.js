@@ -5834,7 +5834,7 @@ function popolaSelectMezzi(){
 function renderListaInterv(arr){
   _tmpInterv=[...arr];
   _ensureCampoEsterni();
-  document.getElementById('mc-interv-list').innerHTML = arr.map((iv,i)=>`
+  const _riga = ({iv,i})=>`
     <div style="display:flex;align-items:center;gap:8px;background:var(--td2);border-radius:6px;padding:6px 10px;margin-bottom:6px;font-size:12px;flex-wrap:wrap">
       <span style="flex:1;min-width:80px"><b>${fdateGiorno(iv.data)}</b></span>
       <span style="flex:1;min-width:80px">${iv.oraInizio||'08:00'}–${iv.oraFine||'18:00'}${iv.notturno||toMin(iv.oraFine||'18:00')<=toMin(iv.oraInizio||'08:00')?' 🌙':''}</span>
@@ -5845,7 +5845,17 @@ function renderListaInterv(arr){
       <span onclick="apriDuplicaIntervPeriodo(${i})" title="Ripeti su più giorni" style="cursor:pointer;font-size:14px">📅</span>
       <span onclick="rimuoviInterv(${i})" style="cursor:pointer;color:var(--red);font-size:16px;line-height:1">×</span>
     </div>
-  `).join('');
+  `;
+  // In cima le prossime lavorazioni (da oggi, in ordine di data), le passate per mese dal più recente (raggruppa.js).
+  // Le voci tengono il loro indice i: modifica/duplica/rimuovi restano quelli di sempre.
+  const voci = arr.map((iv,i)=>({iv,i})).sort((a,b)=>String(a.iv.data||'').localeCompare(String(b.iv.data||'')));
+  const oggi = today();
+  const el = document.getElementById('mc-interv-list');
+  if(typeof RAGGRUPPA!=='undefined' && voci.some(v=>v.iv.data && v.iv.data<oggi)){
+    RAGGRUPPA.registra('lavorazioni', ()=>renderListaInterv(_tmpInterv));
+    el.innerHTML = RAGGRUPPA.tabella({ chiave:'lavorazioni', modo:'blocchi', voci, riga:_riga, anno:'tutti', ordina:false,
+      data:v=>v.iv.data||'', titoloSeguire:'Prossime lavorazioni', daSeguire:v=>!!v.iv.data && v.iv.data>=oggi });
+  } else el.innerHTML = voci.map(_riga).join('');
 }
 function rimuoviInterv(i){ _tmpInterv.splice(i,1); renderListaInterv(_tmpInterv); }
 
